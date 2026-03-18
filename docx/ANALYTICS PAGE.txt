@@ -1,0 +1,15 @@
+[ HEADER ]
+Analytics
+
+------------------------------------------------------
+
+[ CHARTS ]
+- Weekly consistency %
+- Habit completion trend
+- Workout progress
+
+------------------------------------------------------
+
+[ INSIGHTS ]
+"You improved 15% this week"
+"You missed 2 days"

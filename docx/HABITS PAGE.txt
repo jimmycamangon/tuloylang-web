@@ -1,0 +1,19 @@
+[ HEADER ]
+Habits
+
+[ + Add Habit ]
+
+------------------------------------------------------
+
+[ HABIT LIST ]
+----------------------------------
+Jogging
+Frequency: Daily
+Streak: 5 🔥
+[ Edit ] [ Delete ]
+
+----------------------------------
+Push-ups
+Frequency: Daily
+Streak: 3 🔥
+[ Edit ] [ Delete ]
