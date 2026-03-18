@@ -1,6 +1,6 @@
 const links = [
   { label: "Features", href: "#features" },
-  { label: "GitHub", href: "https://github.com" },
+  { label: "GitHub", href: "https://github.com/jimmycamangon" },
 ]
 
 export default function NavigationPage() {
