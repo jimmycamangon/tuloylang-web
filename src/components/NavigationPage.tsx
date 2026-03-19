@@ -3,7 +3,11 @@ const links = [
   { label: "GitHub", href: "https://github.com/jimmycamangon" },
 ]
 
-export default function NavigationPage() {
+type NavigationPageProps = {
+  showLinks?: boolean
+}
+
+export default function NavigationPage({ showLinks = true }: NavigationPageProps) {
   return (
     <nav className="w-full bg-white">
       <div className="mx-auto flex items-center gap-4 px-8 py-4">
@@ -21,24 +25,26 @@ export default function NavigationPage() {
         </a>
 
         {/* Links */}
-        <div className="flex items-center gap-4">
-          {links.map((link) => (
-            <div key={link.label} className="flex items-center gap-4">
-              
-              {/* Separator */}
-              <span className="text-gray-300 select-none">|</span>
+        {showLinks && (
+          <div className="flex items-center gap-4">
+            {links.map((link) => (
+              <div key={link.label} className="flex items-center gap-4">
+                
+                {/* Separator */}
+                <span className="text-gray-300 select-none">|</span>
 
-              {/* Link */}
-              <a
-                href={link.href}
-                className="text-sm font-medium text-black hover:text-gray-600 transition"
-              >
-                {link.label}
-              </a>
+                {/* Link */}
+                <a
+                  href={link.href}
+                  className="text-sm font-medium text-black hover:text-gray-600 transition"
+                >
+                  {link.label}
+                </a>
 
-            </div>
-          ))}
-        </div>
+              </div>
+            ))}
+          </div>
+        )}
 
       </div>
     </nav>
