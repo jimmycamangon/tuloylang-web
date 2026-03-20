@@ -6,7 +6,9 @@ const Footer = () => {
           <a href="https://github.com/jimmycamangon">Github</a>
         </span>
         <span>|</span>
-        <span className="cursor-pointer hover:text-black">Version v1.0.0</span>
+        <span className="cursor-pointer hover:text-black">
+          Version v{__APP_VERSION__}
+        </span>
         <span>|</span>
         <span className="cursor-pointer hover:text-black">Contact</span>
       </div>

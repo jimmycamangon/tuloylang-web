@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { Bell, FolderKanban, LayoutDashboard, ScrollText, Search, LogOut, Sun, Moon } from 'lucide-react'
+import { Repeat, LayoutDashboard, BarChart3, Search, LogOut, Sun, Moon, Settings, Dumbbell } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import SampleTablePage from './SampleTablePage'
-// import Footer from './Footer'
+import Footer from '../components/Footer'
 
 type NavItem = {
   id: string
@@ -42,124 +42,35 @@ const routeMeta: Record<string, RouteMeta> = {
   settings: {
     path: '/dashboard/settings',
     title: 'Settings',
-    description: 'Preferences and account configuration',
+    description: 'Preferences',
     breadcrumbs: ['settings'],
   },
-  projects: {
-    path: '/dashboard/projects',
-    title: 'Projects',
-    description: 'Active tasks and timelines',
-    breadcrumbs: ['projects'],
+  habits: {
+    path: '/dashboard/habits',
+    title: 'Habits',
+    description: 'Daily routines',
+    breadcrumbs: ['habits'],
   },
-  'projects-active': {
-    path: '/dashboard/projects/active',
-    title: 'Active Projects',
-    breadcrumbs: ['projects', 'projects-active'],
+  workouts: {
+    path: '/dashboard/workouts',
+    title: 'Workouts',
+    description: 'Training sessions',
+    breadcrumbs: ['workouts'],
   },
-  'projects-active-web': {
-    path: '/dashboard/projects/active/web-platform',
-    title: 'Web Platform',
-    breadcrumbs: ['projects', 'projects-active', 'projects-active-web'],
-  },
-  'projects-active-mobile': {
-    path: '/dashboard/projects/active/mobile-app',
-    title: 'Mobile App',
-    breadcrumbs: ['projects', 'projects-active', 'projects-active-mobile'],
-  },
-  'projects-backlog': {
-    path: '/dashboard/projects/backlog',
-    title: 'Project Backlog',
-    breadcrumbs: ['projects', 'projects-backlog'],
-  },
-  'projects-backlog-q2': {
-    path: '/dashboard/projects/backlog/q2-candidates',
-    title: 'Q2 Candidates',
-    breadcrumbs: ['projects', 'projects-backlog', 'projects-backlog-q2'],
-  },
-  'projects-backlog-ideas': {
-    path: '/dashboard/projects/backlog/idea-pipeline',
-    title: 'Idea Pipeline',
-    breadcrumbs: ['projects', 'projects-backlog', 'projects-backlog-ideas'],
-  },
-  'projects-calendar': {
-    path: '/dashboard/projects/calendar',
-    title: 'Project Calendar',
-    breadcrumbs: ['projects', 'projects-calendar'],
-  },
-  reports: {
-    path: '/dashboard/reports',
-    title: 'Reports',
-    description: 'Performance and exports',
-    breadcrumbs: ['reports'],
-  },
-  'reports-daily': {
-    path: '/dashboard/reports/daily-summary',
-    title: 'Daily Summary',
-    breadcrumbs: ['reports', 'reports-daily'],
-  },
-  'reports-weekly': {
-    path: '/dashboard/reports/weekly-metrics',
-    title: 'Weekly Metrics',
-    breadcrumbs: ['reports', 'reports-weekly'],
-  },
-  'reports-table': {
-    path: '/dashboard/reports/sample-table',
-    title: 'Sample Table',
-    description: 'Search, filter, and pagination demo',
-    breadcrumbs: ['reports', 'reports-table'],
-  },
-  'reports-export': {
-    path: '/dashboard/reports/export-data',
-    title: 'Export Data',
-    breadcrumbs: ['reports', 'reports-export'],
+    analytics: {
+    path: '/dashboard/analytics',
+    title: 'Analytics',
+    description: 'Insights',
+    breadcrumbs: ['analytics'],
   },
 }
 
 const navItems: NavItem[] = [
   { id: 'dashboard', icon: LayoutDashboard, title: 'Dashboard', detail: 'Overview and quick stats' },
-  {
-    id: 'projects',
-    icon: FolderKanban,
-    title: 'Projects',
-    detail: 'Active tasks and timelines',
-    children: [
-      {
-        id: 'projects-active',
-        title: 'Active Projects',
-        children: [
-          { id: 'projects-active-web', title: 'Web Platform' },
-          { id: 'projects-active-mobile', title: 'Mobile App' },
-        ],
-      },
-      {
-        id: 'projects-backlog',
-        title: 'Project Backlog',
-        children: [
-          { id: 'projects-backlog-q2', title: 'Q2 Candidates' },
-          { id: 'projects-backlog-ideas', title: 'Idea Pipeline' },
-        ],
-      },
-      { id: 'projects-calendar', title: 'Project Calendar' },
-    ],
-  },
-  {
-    id: 'reports',
-    icon: ScrollText,
-    title: 'Reports',
-    detail: 'Performance and exports',
-    children: [
-      { id: 'reports-daily', title: 'Daily Summary' },
-      { id: 'reports-weekly', title: 'Weekly Metrics' },
-      { id: 'reports-table', title: 'Sample Table' },
-      { id: 'reports-export', title: 'Export Data' },
-    ],
-  },
-]
-
-const NOTIFICATIONS = [
-  { id: 1, title: 'Build completed', detail: 'Your latest deployment build succeeded.' },
-  { id: 2, title: 'Review request', detail: 'PR #42 is waiting for your review.' },
-  { id: 3, title: 'Reminder', detail: 'Weekly report is due in 2 hours.' },
+  { id: 'habits',icon: Repeat,title: 'Habits',detail: 'Daily routines', },
+  { id: 'workouts',icon: Dumbbell,title: 'Workouts',detail: 'Training sessions', },
+  { id: 'analytics',icon: BarChart3,title: 'Analytics',detail: 'Insights', },
+  { id: 'settings',icon: Settings,title: 'Settings',detail: 'Preferences', },
 ]
 
   function PageContent({ meta }: { meta: RouteMeta }) {
@@ -206,7 +117,6 @@ export default function DashboardPage() {
   const [hoveredMenuId, setHoveredMenuId] = useState<string | null>(null)
   const hoverCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const profileMenuRef = useRef<HTMLDivElement | null>(null)
-  const notificationMenuRef = useRef<HTMLDivElement | null>(null)
   const commandItemRefs = useRef<Array<HTMLButtonElement | null>>([])
 
   const sidebarWidth = expanded ? 'w-72' : 'w-20'
@@ -308,10 +218,6 @@ export default function DashboardPage() {
       if (profileMenuRef.current && !profileMenuRef.current.contains(target)) {
         setShowProfileMenu(false)
       }
-
-      if (notificationMenuRef.current && !notificationMenuRef.current.contains(target)) {
-        setShowNotificationMenu(false)
-      }
     }
 
     document.addEventListener('mousedown', handleOutsideClick)
@@ -397,6 +303,8 @@ export default function DashboardPage() {
   }
 
   function SidebarContent({ mobile = false }: { mobile?: boolean }) {
+
+    const showFullLogo = mobile || expanded
     return (
       <>
         {/* #region Sidebar Header / Brand */}
@@ -404,21 +312,26 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => {
-              if (mobile) setMobileOpen(false)
-              else setExpanded((prev) => !prev)
+              if (mobile) setMobileOpen(false);
+              else setExpanded((prev) => !prev);
             }}
             className="flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-accent"
             aria-label="Toggle logo details"
           >
-            <div className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-md">
-              <img src="/j-c-logo-v2.png" alt="Jim Portal logo" />
-            </div>
-            {(expanded || mobile) && (
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-black uppercase text-foreground">
-                  Jim Project Portals
-                </span>
-              </span>
+            {showFullLogo ? (
+              <img
+                src="/TuloyLang-Logov2.png"
+                alt="logo"
+                className="h-7 w-auto object-contain dark:invert"
+              />
+            ) : (
+              <div className="flex h-9 w-9 items-center justify-center rounded-md">
+                <img
+                  src="/TuloyLangIcon.png"
+                  alt="icon"
+                  className="h-7 w-auto object-contain dark:invert"
+                />
+              </div>
             )}
           </button>
         </div>
@@ -427,33 +340,34 @@ export default function DashboardPage() {
         {/* #region Sidebar Menu List */}
         <nav className="flex-1 space-y-2 overflow-visible p-3">
           {navItems.map((item) => {
-            const Icon = item.icon
-            const isActive = activeId === item.id
-            const canShowDetails = expanded || mobile
-            const hasChildren = Boolean(item.children?.length)
-            const isSubmenuOpen = canShowDetails && openMenus[item.id]
+            const Icon = item.icon;
+            const isActive = activeId === item.id;
+            const canShowDetails = expanded || mobile;
+            const hasChildren = Boolean(item.children?.length);
+            const isSubmenuOpen = canShowDetails && openMenus[item.id];
             return (
               <div
                 key={item.id}
                 className="relative space-y-1"
                 onMouseEnter={() => {
-                  if (!mobile && !expanded && hasChildren) openHoverMenu(item.id)
+                  if (!mobile && !expanded && hasChildren)
+                    openHoverMenu(item.id);
                 }}
                 onMouseLeave={() => {
-                  if (!mobile) closeHoverMenuWithDelay()
+                  if (!mobile) closeHoverMenuWithDelay();
                 }}
               >
                 <button
                   type="button"
                   onClick={() => {
                     if (hasChildren && canShowDetails) {
-                      toggleSubmenu(item.id)
-                      if (!mobile) handleMenuItemClick(item.id)
-                      return
+                      toggleSubmenu(item.id);
+                      if (!mobile) handleMenuItemClick(item.id);
+                      return;
                     }
-                    handleMenuItemClick(item.id)
+                    handleMenuItemClick(item.id);
                   }}
-                  className={`nav-item-base ${isActive ? 'nav-item-active' : 'nav-item-idle'}`}
+                  className={`nav-item-base ${isActive ? "nav-item-active" : "nav-item-idle"}`}
                 >
                   <span className="nav-icon-chip">
                     <Icon className="h-4 w-4" strokeWidth={2} />
@@ -461,7 +375,9 @@ export default function DashboardPage() {
 
                   {canShowDetails && (
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">{item.title}</span>
+                      <span className="block truncate text-sm font-medium">
+                        {item.title}
+                      </span>
                       <span className="muted-copy block truncate text-xs">
                         {routeMeta[item.id]?.description ?? item.detail}
                       </span>
@@ -471,7 +387,7 @@ export default function DashboardPage() {
                   {canShowDetails && hasChildren && (
                     <span
                       className={`muted-copy text-xs transition-transform duration-300 ${
-                        isSubmenuOpen ? 'rotate-90' : 'rotate-0'
+                        isSubmenuOpen ? "rotate-90" : "rotate-0"
                       }`}
                     >
                       <svg
@@ -497,33 +413,39 @@ export default function DashboardPage() {
                   <div
                     className={`ml-12 grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
                       isSubmenuOpen
-                        ? 'grid-rows-[1fr] translate-y-0 opacity-100'
-                        : 'grid-rows-[0fr] -translate-y-1 opacity-0'
+                        ? "grid-rows-[1fr] translate-y-0 opacity-100"
+                        : "grid-rows-[0fr] -translate-y-1 opacity-0"
                     }`}
                   >
                     <div className="relative space-y-1 overflow-hidden pl-3">
                       <div className="absolute bottom-1 left-0 top-1 w-px bg-border" />
                       {item.children!.map((child, index) => {
-                        const isChildActive = activeId === child.id
-                        const hasGrandchildren = Boolean(child.children?.length)
-                        const isChildSubmenuOpen = openChildMenus[child.id]
+                        const isChildActive = activeId === child.id;
+                        const hasGrandchildren = Boolean(
+                          child.children?.length,
+                        );
+                        const isChildSubmenuOpen = openChildMenus[child.id];
                         return (
                           <div key={child.id} className="space-y-1">
                             <button
                               type="button"
                               onClick={() => {
                                 if (hasGrandchildren) {
-                                  toggleChildSubmenu(child.id)
-                                  if (!mobile) handleMenuItemClick(child.id)
-                                  return
+                                  toggleChildSubmenu(child.id);
+                                  if (!mobile) handleMenuItemClick(child.id);
+                                  return;
                                 }
-                                handleMenuItemClick(child.id)
+                                handleMenuItemClick(child.id);
                               }}
-                              style={{ transitionDelay: isSubmenuOpen ? `${index * 40}ms` : '0ms' }}
-                              className={`submenu-item-base ${isChildActive ? 'submenu-item-active' : 'submenu-item-idle'} ${
+                              style={{
+                                transitionDelay: isSubmenuOpen
+                                  ? `${index * 40}ms`
+                                  : "0ms",
+                              }}
+                              className={`submenu-item-base ${isChildActive ? "submenu-item-active" : "submenu-item-idle"} ${
                                 isSubmenuOpen
-                                  ? 'translate-x-0 opacity-100'
-                                  : '-translate-x-1 opacity-0'
+                                  ? "translate-x-0 opacity-100"
+                                  : "-translate-x-1 opacity-0"
                               }`}
                             >
                               <span className="absolute -left-3 h-px w-2 bg-border" />
@@ -531,7 +453,9 @@ export default function DashboardPage() {
                               {hasGrandchildren && (
                                 <span
                                   className={`transition-transform duration-300 ${
-                                    isChildSubmenuOpen ? 'rotate-90' : 'rotate-0'
+                                    isChildSubmenuOpen
+                                      ? "rotate-90"
+                                      : "rotate-0"
                                   }`}
                                 >
                                   <svg
@@ -557,82 +481,95 @@ export default function DashboardPage() {
                               <div
                                 className={`ml-4 grid transition-[grid-template-rows,opacity] duration-300 ${
                                   isChildSubmenuOpen
-                                    ? 'grid-rows-[1fr] opacity-100'
-                                    : 'grid-rows-[0fr] opacity-0'
+                                    ? "grid-rows-[1fr] opacity-100"
+                                    : "grid-rows-[0fr] opacity-0"
                                 }`}
                               >
                                 <div className="relative space-y-1 overflow-hidden pl-3">
                                   <div className="absolute bottom-1 left-0 top-1 w-px bg-border" />
                                   {child.children!.map((grandchild) => {
-                                    const isGrandchildActive = activeId === grandchild.id
+                                    const isGrandchildActive =
+                                      activeId === grandchild.id;
                                     return (
                                       <button
                                         key={grandchild.id}
                                         type="button"
-                                        onClick={() => handleMenuItemClick(grandchild.id)}
+                                        onClick={() =>
+                                          handleMenuItemClick(grandchild.id)
+                                        }
                                         className={`relative block w-full rounded-md px-3 py-1.5 text-left text-xs transition-colors ${
-                                          isGrandchildActive ? 'submenu-grandchild-active' : 'submenu-grandchild-idle'
+                                          isGrandchildActive
+                                            ? "submenu-grandchild-active"
+                                            : "submenu-grandchild-idle"
                                         }`}
                                       >
                                         <span className="absolute -left-3 h-px w-2 bg-border" />
                                         {grandchild.title}
                                       </button>
-                                    )
+                                    );
                                   })}
                                 </div>
                               </div>
                             )}
                           </div>
-                        )
+                        );
                       })}
                     </div>
                   </div>
                 )}
 
-                {!mobile && !expanded && hasChildren && hoveredMenuId === item.id && (
-                  <div
-                    className="popover-shell absolute left-full top-0 z-[70] ml-2 w-72"
-                    onMouseEnter={() => openHoverMenu(item.id)}
-                    onMouseLeave={closeHoverMenuWithDelay}
-                  >
-                    <p className="popover-title">
-                      {item.title}
-                    </p>
-                    <div className="max-h-96 space-y-1 overflow-auto pr-1">
-                      {item.children!.map((child) => {
-                        const hasGrandchildren = Boolean(child.children?.length)
-                        return (
-                          <div key={`hover-${child.id}`} className="space-y-1">
-                            <button
-                              type="button"
-                              onClick={() => handleMenuItemClick(child.id)}
-                              className="popover-item"
+                {!mobile &&
+                  !expanded &&
+                  hasChildren &&
+                  hoveredMenuId === item.id && (
+                    <div
+                      className="popover-shell absolute left-full top-0 z-[70] ml-2 w-72"
+                      onMouseEnter={() => openHoverMenu(item.id)}
+                      onMouseLeave={closeHoverMenuWithDelay}
+                    >
+                      <p className="popover-title">{item.title}</p>
+                      <div className="max-h-96 space-y-1 overflow-auto pr-1">
+                        {item.children!.map((child) => {
+                          const hasGrandchildren = Boolean(
+                            child.children?.length,
+                          );
+                          return (
+                            <div
+                              key={`hover-${child.id}`}
+                              className="space-y-1"
                             >
-                              {child.title}
-                            </button>
+                              <button
+                                type="button"
+                                onClick={() => handleMenuItemClick(child.id)}
+                                className="popover-item"
+                              >
+                                {child.title}
+                              </button>
 
-                            {hasGrandchildren && (
-                              <div className="popover-subtree">
-                                {child.children!.map((grandchild) => (
-                                  <button
-                                    key={`hover-${grandchild.id}`}
-                                    type="button"
-                                    onClick={() => handleMenuItemClick(grandchild.id)}
-                                    className="popover-subitem"
-                                  >
-                                    {grandchild.title}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
+                              {hasGrandchildren && (
+                                <div className="popover-subtree">
+                                  {child.children!.map((grandchild) => (
+                                    <button
+                                      key={`hover-${grandchild.id}`}
+                                      type="button"
+                                      onClick={() =>
+                                        handleMenuItemClick(grandchild.id)
+                                      }
+                                      className="popover-subitem"
+                                    >
+                                      {grandchild.title}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
-            )
+            );
           })}
         </nav>
         {/* #endregion Sidebar Menu List */}
@@ -645,7 +582,9 @@ export default function DashboardPage() {
             </div>
             {(expanded || mobile) && (
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">Jimmy Camangon</p>
+                <p className="truncate text-sm font-medium text-foreground">
+                  Jimmy Camangon
+                </p>
                 <p className="muted-copy truncate text-xs">.NET Developer</p>
               </div>
             )}
@@ -653,7 +592,7 @@ export default function DashboardPage() {
         </div>
         {/* #endregion Sidebar Footer / User Summary + Logout */}
       </>
-    )
+    );
   }
 
   return (
@@ -738,39 +677,6 @@ export default function DashboardPage() {
               >
                 {isDark ? <Sun className='mx-auto h-4 w-4' /> : <Moon className='mx-auto h-4 w-4' />}
               </button>
-              <div ref={notificationMenuRef} className="relative">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowNotificationMenu((prev) => !prev)
-                    setShowProfileMenu(false)
-                  }}
-                  className="ui-icon-button relative"
-                  aria-label="Open notifications"
-                >
-                  <Bell className="h-4 w-4" />
-                  <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-red-500" />
-                </button>
-
-                {showNotificationMenu && (
-                  <div className="surface-card absolute right-0 top-12 z-50 w-72 p-2 shadow-xl">
-                    <p className="px-2 py-1 text-sm font-semibold text-foreground">Notifications</p>
-                    <div className="mt-1 space-y-1">
-                      {NOTIFICATIONS.map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => setShowNotificationMenu(false)}
-                          className="w-full rounded-md px-2 py-2 text-left transition-colors hover:bg-accent"
-                        >
-                          <p className="text-sm font-medium text-foreground">{item.title}</p>
-                          <p className="muted-copy text-xs">{item.detail}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
               <div ref={profileMenuRef} className="relative">
                 <button
                   type="button"
@@ -781,7 +687,7 @@ export default function DashboardPage() {
                   className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border bg-card transition-colors hover:bg-accent"
                   aria-label="Open profile menu"
                 >
-                  <img src="/j-c-logo-v2.png" alt="Profile menu" className="h-full w-full object-cover" />
+                  <img src="/TuloyLangIcon.png" alt="Profile menu" className="h-full w-full object-cover" />
                 </button>
 
                 {showProfileMenu && (
@@ -849,7 +755,7 @@ export default function DashboardPage() {
             {/* #endregion Routed Pages */}
           </main>
           {/* #endregion Page Content Area */}
-          {/* <Footer /> */}
+          <Footer />
         </div>
         {/* #endregion Right Pane: Top Nav + Content */}
       </div>
