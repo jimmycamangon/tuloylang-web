@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react'
 import { Repeat, LayoutDashboard, BarChart3, Search, LogOut, Sun, Moon, Settings, Dumbbell } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import SampleTablePage from './SampleTablePage'
+import HabitsPage from './HabitsPage'
 import Footer from '../components/Footer'
 
 type NavItem = {
@@ -85,6 +86,10 @@ const navItems: NavItem[] = [
 }
 
 function getRouteContent(activeId: string, currentRoute: RouteMeta) {
+  if (activeId === 'habits') {
+    return <HabitsPage />
+  }
+
   if (activeId === 'reports-table') {
     return <SampleTablePage />
   }
@@ -102,7 +107,6 @@ export default function DashboardPage() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
-  const [showNotificationMenu, setShowNotificationMenu] = useState(false)
   const [commandQuery, setCommandQuery] = useState('')
   const [highlightedIndex, setHighlightedIndex] = useState(0)
   const [isDark, setIsDark] = useState(false)
@@ -239,14 +243,12 @@ export default function DashboardPage() {
     if (path && location.pathname !== path) {
       navigate(path)
     }
-    setShowNotificationMenu(false)
     setShowProfileMenu(false)
     setMobileOpen(false)
   }
 
   function confirmLogout() {
     setShowLogoutConfirm(false)
-    setShowNotificationMenu(false)
     setShowProfileMenu(false)
     setMobileOpen(false)
     navigate('/', { replace: true })
@@ -682,7 +684,6 @@ export default function DashboardPage() {
                   type="button"
                   onClick={() => {
                     setShowProfileMenu((prev) => !prev)
-                    setShowNotificationMenu(false)
                   }}
                   className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border bg-card transition-colors hover:bg-accent"
                   aria-label="Open profile menu"
