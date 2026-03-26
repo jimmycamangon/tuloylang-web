@@ -4,7 +4,7 @@ import type { Habit } from '../types/habit'
 export const APP_DATA_STORAGE_KEY = 'tuloylang_app_data'
 
 const defaultAppData: AppData = {
-  version: 1,
+  version: 2,
   habits: [],
 }
 
@@ -19,6 +19,9 @@ function isHabit(value: unknown): value is Habit {
     typeof habit.description === 'string' &&
     (habit.frequency === 'daily' || habit.frequency === 'weekend') &&
     typeof habit.createdAt === 'string' &&
+    (habit.completions === undefined ||
+      (Array.isArray(habit.completions) &&
+        habit.completions.every((entry) => typeof entry === 'string'))) &&
     (habit.isArchived === undefined ||
       typeof habit.isArchived === 'boolean' ||
       typeof habit.isArchieved === 'boolean')
@@ -29,13 +32,16 @@ function normalizeAppData(value: unknown): AppData {
   const parsed = value as Partial<AppData>
 
   return {
-    version: typeof parsed.version === 'number' ? parsed.version : 1,
+    version: typeof parsed.version === 'number' ? parsed.version : 2,
     habits: Array.isArray(parsed.habits)
       ? parsed.habits.filter(isHabit).map((habit) => {
           const normalizedHabit = habit as Habit & { isArchieved?: boolean }
 
           return {
             ...normalizedHabit,
+            completions: Array.isArray(normalizedHabit.completions)
+              ? [...new Set(normalizedHabit.completions)].sort()
+              : [],
             isArchived: normalizedHabit.isArchived ?? normalizedHabit.isArchieved ?? false,
           }
         })
@@ -100,7 +106,9 @@ export function updateHabit(updatedHabit: Habit) {
   const nextData: AppData = {
     ...currentData,
     habits: currentData.habits.map((habit) =>
-      habit.id === updatedHabit.id ? updatedHabit : habit,
+      habit.id === updatedHabit.id
+        ? { ...updatedHabit, completions: updatedHabit.completions ?? [] }
+        : habit,
     ),
   }
 
@@ -126,6 +134,28 @@ export function deleteHabitPermanently(habitId: string) {
   const nextData: AppData = {
     ...currentData,
     habits: currentData.habits.filter((habit) => habit.id !== habitId),
+  }
+
+  saveAppData(nextData)
+  return nextData
+}
+
+export function setHabitCompletion(habitId: string, dateKey: string, completed: boolean) {
+  const currentData = readAppData()
+  const nextData: AppData = {
+    ...currentData,
+    habits: currentData.habits.map((habit) => {
+      if (habit.id !== habitId) return habit
+
+      const nextCompletions = new Set(habit.completions ?? [])
+      if (completed) nextCompletions.add(dateKey)
+      else nextCompletions.delete(dateKey)
+
+      return {
+        ...habit,
+        completions: [...nextCompletions].sort(),
+      }
+    }),
   }
 
   saveAppData(nextData)

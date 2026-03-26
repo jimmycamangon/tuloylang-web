@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   APP_DATA_STORAGE_KEY,
@@ -6,6 +6,7 @@ import {
   downloadAppDataFile,
   readAppData,
   saveHabit,
+  setHabitCompletion,
   setHabitArchived,
   updateHabit,
 } from '../lib/appDataStorage'
@@ -23,12 +24,80 @@ const initialFormState: HabitFormState = {
   frequency: 'daily',
 }
 
+const weekdayFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'short' })
+const shortDateFormatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
+
+function getLocalDateKey(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function parseDateKey(dateKey: string) {
+  const [year, month, day] = dateKey.split('-').map(Number)
+  return new Date(year, (month || 1) - 1, day || 1)
+}
+
+function isHabitScheduledForDate(habit: Habit, date: Date) {
+  if (habit.frequency === 'daily') return true
+
+  const day = date.getDay()
+  return day === 0 || day === 6
+}
+
+function hasCompletionOnDate(habit: Habit, dateKey: string) {
+  return (habit.completions ?? []).includes(dateKey)
+}
+
+function getCurrentStreak(habit: Habit, today: Date) {
+  let streak = 0
+  const cursor = new Date(today)
+
+  while (true) {
+    if (isHabitScheduledForDate(habit, cursor)) {
+      const cursorKey = getLocalDateKey(cursor)
+      if (!hasCompletionOnDate(habit, cursorKey)) break
+      streak += 1
+    }
+
+    cursor.setDate(cursor.getDate() - 1)
+
+    if (cursor < parseDateKey(habit.createdAt.slice(0, 10))) {
+      break
+    }
+  }
+
+  return streak
+}
+
+function getLastCompletedDate(habit: Habit) {
+  const completions = habit.completions ?? []
+  return completions.length > 0 ? completions[completions.length - 1] : null
+}
+
 export default function HabitsPage() {
   const [form, setForm] = useState<HabitFormState>(initialFormState)
   const [habits, setHabits] = useState<Habit[]>([])
   const [feedback, setFeedback] = useState('')
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null)
   const [deletingHabit, setDeletingHabit] = useState<Habit | null>(null)
+  const today = useMemo(() => new Date(), [])
+  const todayKey = getLocalDateKey(today)
+  const recentDays = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(today)
+        date.setDate(today.getDate() - (6 - index))
+        return {
+          date,
+          key: getLocalDateKey(date),
+          shortLabel: weekdayFormatter.format(date),
+          dateLabel: shortDateFormatter.format(date),
+        }
+      }),
+    [today],
+  )
 
   useEffect(() => {
     setHabits(readAppData().habits)
@@ -37,6 +106,7 @@ export default function HabitsPage() {
   const activeHabits = habits.filter((habit) => !habit.isArchived)
   const archivedHabits = habits.filter((habit) => habit.isArchived)
   const shouldScrollArchivedHabits = archivedHabits.length > 2
+  const completedTodayCount = activeHabits.filter((habit) => hasCompletionOnDate(habit, todayKey)).length
 
   function resetForm() {
     setForm(initialFormState)
@@ -107,6 +177,7 @@ export default function HabitsPage() {
       createdAt:
         habits.find((habit) => habit.id === editingHabitId)?.createdAt ?? new Date().toISOString(),
       isArchived: habits.find((habit) => habit.id === editingHabitId)?.isArchived ?? false,
+      completions: habits.find((habit) => habit.id === editingHabitId)?.completions ?? [],
     }
 
     const nextData = editingHabitId ? updateHabit(habitToSave) : saveHabit(habitToSave)
@@ -116,6 +187,17 @@ export default function HabitsPage() {
       editingHabitId
         ? `Habit updated in localStorage under "${APP_DATA_STORAGE_KEY}".`
         : `Habit saved to localStorage under "${APP_DATA_STORAGE_KEY}".`,
+    )
+  }
+
+  function handleCompletionToggle(habit: Habit) {
+    const alreadyCompleted = hasCompletionOnDate(habit, todayKey)
+    const nextData = setHabitCompletion(habit.id, todayKey, !alreadyCompleted)
+    setHabits(nextData.habits)
+    setFeedback(
+      alreadyCompleted
+        ? `Removed today's completion for "${habit.name}".`
+        : `Marked "${habit.name}" as complete for today.`,
     )
   }
 
@@ -129,7 +211,8 @@ export default function HabitsPage() {
                 {editingHabitId ? 'Edit Habit' : 'Create Habit'}
               </h2>
               <p className="muted-copy mt-2 text-sm">
-                Add a habit and store it locally in your browser so it stays available after refresh.
+                Add habits, then check them off daily so your progress, streaks, and history stay
+                available after refresh.
               </p>
             </div>
             <button
@@ -227,12 +310,17 @@ export default function HabitsPage() {
           <div>
             <h2 className="text-base font-semibold text-foreground">Active Habits</h2>
             <p className="muted-copy mt-2 text-sm">
-              These records are loaded from your browser storage.
+              Manage your current routines and check off what you completed today.
             </p>
           </div>
-          <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
-            {activeHabits.length} active
-          </span>
+          <div className="flex flex-wrap justify-end gap-2">
+            <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
+              {activeHabits.length} active
+            </span>
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-200">
+              {completedTodayCount} completed today
+            </span>
+          </div>
         </div>
 
         {activeHabits.length === 0 ? (
@@ -248,17 +336,99 @@ export default function HabitsPage() {
                 <article key={habit.id} className="rounded-lg border border-border bg-card p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold text-foreground">{habit.name}</h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-sm font-semibold text-foreground">{habit.name}</h3>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                            hasCompletionOnDate(habit, todayKey)
+                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-200'
+                              : 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-200'
+                          }`}
+                        >
+                          {hasCompletionOnDate(habit, todayKey) ? 'Done today' : 'Open today'}
+                        </span>
+                      </div>
                       <p className="muted-copy mt-1 text-sm">{habit.description}</p>
                     </div>
                     <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-200">
                       {habit.frequency}
                     </span>
                   </div>
-                  <p className="muted-copy mt-3 text-xs">
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-lg bg-muted/50 px-3 py-2">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Current streak
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-foreground">
+                        {getCurrentStreak(habit, today)} day{getCurrentStreak(habit, today) === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 px-3 py-2">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Last completed
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-foreground">
+                        {getLastCompletedDate(habit)
+                          ? shortDateFormatter.format(parseDateKey(getLastCompletedDate(habit)!))
+                          : 'Not yet'}
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 px-3 py-2">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Last 7 days
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-foreground">
+                        {recentDays.filter((day) => hasCompletionOnDate(habit, day.key)).length}/7 complete
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <p className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                      Recent history
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {recentDays.map((day) => {
+                        const isCompleted = hasCompletionOnDate(habit, day.key)
+                        const isScheduled = isHabitScheduledForDate(habit, day.date)
+                        return (
+                          <div
+                            key={`${habit.id}-${day.key}`}
+                            className={`min-w-14 rounded-md border px-2 py-1.5 text-center text-xs ${
+                              !isScheduled
+                                ? 'border-border/60 bg-transparent text-muted-foreground'
+                                : isCompleted
+                                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200'
+                                  : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
+                            }`}
+                            title={`${day.dateLabel}: ${
+                              !isScheduled ? 'Not scheduled' : isCompleted ? 'Completed' : 'Not completed'
+                            }`}
+                          >
+                            <div>{day.shortLabel}</div>
+                            <div className="mt-1 text-[11px]">{isScheduled ? (isCompleted ? 'Done' : 'Open') : 'Off'}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <p className="muted-copy mt-4 text-xs">
                     Created: {new Date(habit.createdAt).toLocaleString()}
                   </p>
-                  <div className="mt-4 flex gap-2">
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCompletionToggle(habit)}
+                      className={
+                        hasCompletionOnDate(habit, todayKey)
+                          ? 'ui-button'
+                          : 'ui-button bg-emerald-600 text-white hover:bg-emerald-700'
+                      }
+                    >
+                      {hasCompletionOnDate(habit, todayKey) ? 'Undo today' : 'Mark today complete'}
+                    </button>
                     <button
                       type="button"
                       onClick={() => startEdit(habit)}
@@ -322,6 +492,10 @@ export default function HabitsPage() {
                   </div>
                   <p className="muted-copy mt-3 text-xs">
                     Created: {new Date(habit.createdAt).toLocaleString()}
+                  </p>
+                  <p className="muted-copy mt-2 text-xs">
+                    Completed on {(habit.completions ?? []).length} day
+                    {(habit.completions ?? []).length === 1 ? '' : 's'} total
                   </p>
                   <div className="mt-4 flex gap-2">
                     <button

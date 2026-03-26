@@ -1,4 +1,3 @@
-
 export type Frequency = 'daily' | 'weekend'
 
 export interface Habit {
@@ -8,4 +7,5 @@ export interface Habit {
   frequency: Frequency
   createdAt: string
   isArchived?: boolean
+  completions?: string[]
 }
