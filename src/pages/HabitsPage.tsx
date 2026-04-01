@@ -10,6 +10,15 @@ import {
   setHabitArchived,
   updateHabit,
 } from '../lib/appDataStorage'
+import {
+  getCurrentStreak,
+  getLastCompletedDate,
+  getLocalDateKey,
+  getRecentDays,
+  hasCompletionOnDate,
+  isHabitScheduledForDate,
+  parseDateKey,
+} from '../lib/habitMetrics'
 import type { Frequency, Habit } from '../types/habit'
 
 type HabitFormState = {
@@ -24,57 +33,7 @@ const initialFormState: HabitFormState = {
   frequency: 'daily',
 }
 
-const weekdayFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'short' })
 const shortDateFormatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
-
-function getLocalDateKey(date: Date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function parseDateKey(dateKey: string) {
-  const [year, month, day] = dateKey.split('-').map(Number)
-  return new Date(year, (month || 1) - 1, day || 1)
-}
-
-function isHabitScheduledForDate(habit: Habit, date: Date) {
-  if (habit.frequency === 'daily') return true
-
-  const day = date.getDay()
-  return day === 0 || day === 6
-}
-
-function hasCompletionOnDate(habit: Habit, dateKey: string) {
-  return (habit.completions ?? []).includes(dateKey)
-}
-
-function getCurrentStreak(habit: Habit, today: Date) {
-  let streak = 0
-  const cursor = new Date(today)
-
-  while (true) {
-    if (isHabitScheduledForDate(habit, cursor)) {
-      const cursorKey = getLocalDateKey(cursor)
-      if (!hasCompletionOnDate(habit, cursorKey)) break
-      streak += 1
-    }
-
-    cursor.setDate(cursor.getDate() - 1)
-
-    if (cursor < parseDateKey(habit.createdAt.slice(0, 10))) {
-      break
-    }
-  }
-
-  return streak
-}
-
-function getLastCompletedDate(habit: Habit) {
-  const completions = habit.completions ?? []
-  return completions.length > 0 ? completions[completions.length - 1] : null
-}
 
 export default function HabitsPage() {
   const [form, setForm] = useState<HabitFormState>(initialFormState)
@@ -84,20 +43,7 @@ export default function HabitsPage() {
   const [deletingHabit, setDeletingHabit] = useState<Habit | null>(null)
   const today = useMemo(() => new Date(), [])
   const todayKey = getLocalDateKey(today)
-  const recentDays = useMemo(
-    () =>
-      Array.from({ length: 7 }, (_, index) => {
-        const date = new Date(today)
-        date.setDate(today.getDate() - (6 - index))
-        return {
-          date,
-          key: getLocalDateKey(date),
-          shortLabel: weekdayFormatter.format(date),
-          dateLabel: shortDateFormatter.format(date),
-        }
-      }),
-    [today],
-  )
+  const recentDays = useMemo(() => getRecentDays(today), [today])
 
   useEffect(() => {
     setHabits(readAppData().habits)

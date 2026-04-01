@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Footer from '../Footer'
+import {
+  getProfileInitials,
+  readNavExpandedPreference,
+  readThemePreference,
+  readUserProfile,
+  saveNavExpandedPreference,
+  saveThemePreference,
+} from '../../lib/userPreferences'
 import DashboardSidebar from './DashboardSidebar'
 import DashboardTopbar from './DashboardTopbar'
 import { routeMeta } from './dashboardConfig'
@@ -11,12 +19,13 @@ export default function DashboardLayout() {
 
   const [expanded, setExpanded] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [commandQuery, setCommandQuery] = useState('')
   const [highlightedIndex, setHighlightedIndex] = useState(0)
   const [isDark, setIsDark] = useState(false)
+  const [profile, setProfile] = useState(readUserProfile)
   const profileMenuRef = useRef<HTMLDivElement | null>(null)
   const commandItemRefs = useRef<Array<HTMLButtonElement | null>>([])
 
@@ -50,21 +59,32 @@ export default function DashboardLayout() {
   }, [commandItems, commandQuery])
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme')
-    if (savedTheme === 'dark') setIsDark(true)
-
-    const savedExpanded = localStorage.getItem('nav_expanded')
-    if (savedExpanded !== null) setExpanded(savedExpanded === 'true')
+    setIsDark(readThemePreference() === 'dark')
+    setExpanded(readNavExpandedPreference())
+    setProfile(readUserProfile())
   }, [])
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark)
-    localStorage.setItem('theme', isDark ? 'dark' : 'light')
+    saveThemePreference(isDark ? 'dark' : 'light')
   }, [isDark])
 
   useEffect(() => {
-    localStorage.setItem('nav_expanded', String(expanded))
+    saveNavExpandedPreference(expanded)
   }, [expanded])
+
+  useEffect(() => {
+    function syncProfile() {
+      setProfile(readUserProfile())
+    }
+
+    window.addEventListener('storage', syncProfile)
+    window.addEventListener('focus', syncProfile)
+    return () => {
+      window.removeEventListener('storage', syncProfile)
+      window.removeEventListener('focus', syncProfile)
+    }
+  }, [])
 
   useEffect(() => {
     function onKeydown(event: KeyboardEvent) {
@@ -116,8 +136,8 @@ export default function DashboardLayout() {
     setMobileOpen(false)
   }
 
-  function confirmLogout() {
-    setShowLogoutConfirm(false)
+  function confirmExitToHome() {
+    setShowExitConfirm(false)
     setShowProfileMenu(false)
     setMobileOpen(false)
     navigate('/', { replace: true })
@@ -155,6 +175,8 @@ export default function DashboardLayout() {
             expanded={expanded}
             onToggleExpanded={() => setExpanded((prev) => !prev)}
             onNavigate={handleNavigate}
+            profile={profile}
+            profileInitials={getProfileInitials(profile)}
           />
         </aside>
 
@@ -180,6 +202,8 @@ export default function DashboardLayout() {
               mobile
               onToggleExpanded={() => setMobileOpen(false)}
               onNavigate={handleNavigate}
+              profile={profile}
+              profileInitials={getProfileInitials(profile)}
             />
           </aside>
         </div>
@@ -194,13 +218,14 @@ export default function DashboardLayout() {
             onToggleTheme={() => setIsDark((prev) => !prev)}
             showProfileMenu={showProfileMenu}
             onToggleProfileMenu={() => setShowProfileMenu((prev) => !prev)}
-            onNavigateProfile={() => handleNavigate('profile')}
             onNavigateSettings={() => handleNavigate('settings')}
-            onOpenLogoutConfirm={() => {
+            onOpenExitConfirm={() => {
               setShowProfileMenu(false)
-              setShowLogoutConfirm(true)
+              setShowExitConfirm(true)
             }}
             profileMenuRef={profileMenuRef}
+            profile={profile}
+            profileInitials={getProfileInitials(profile)}
           />
 
           <main className="w-full flex-1 p-6">
@@ -302,21 +327,23 @@ export default function DashboardLayout() {
         </div>
       )}
 
-      {showLogoutConfirm && (
+      {showExitConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
           <div className="surface-card w-full max-w-sm p-5 shadow-xl">
-            <h3 className="text-base font-semibold text-foreground">Confirm Logout</h3>
-            <p className="muted-copy mt-2 text-sm">Are you sure you want to log out?</p>
+            <h3 className="text-base font-semibold text-foreground">Back To Home</h3>
+            <p className="muted-copy mt-2 text-sm">
+              This will return you to the landing page. Your saved local data will stay intact.
+            </p>
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setShowLogoutConfirm(false)}
+                onClick={() => setShowExitConfirm(false)}
                 className="ui-button py-2"
               >
                 Cancel
               </button>
-              <button type="button" onClick={confirmLogout} className="ui-button-danger">
-                Logout
+              <button type="button" onClick={confirmExitToHome} className="ui-button">
+                Back to home
               </button>
             </div>
           </div>

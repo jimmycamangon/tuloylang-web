@@ -7,8 +7,7 @@ import LandPage from './pages/LandPage.tsx'
 import StartPage from './pages/StartPage.tsx'
 import HabitsPage from './pages/HabitsPage.tsx'
 import DashboardPage from './pages/DashboardPage.tsx'
-import ProfilePage from './pages/ProfilePage.tsx'
-import SampleTablePage from './pages/SampleTablePage.tsx'
+import AnalyticsPage from './pages/AnalyticsPage.tsx'
 import SettingsPage from './pages/SettingsPage.tsx'
 import WorkoutsPage from './pages/WorkoutsPage.tsx'
 
@@ -27,9 +26,8 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/habits" element={<HabitsPage />} />
           <Route path="/workouts" element={<WorkoutsPage />} />
-          <Route path="/analytics" element={<SampleTablePage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

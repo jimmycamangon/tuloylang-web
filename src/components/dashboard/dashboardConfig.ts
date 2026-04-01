@@ -22,12 +22,6 @@ export const routeMeta: Record<string, RouteMeta> = {
     description: 'Overview and quick stats',
     breadcrumbs: ['dashboard'],
   },
-  profile: {
-    path: '/profile',
-    title: 'Profile',
-    description: 'Personal details and settings',
-    breadcrumbs: ['profile'],
-  },
   settings: {
     path: '/settings',
     title: 'Settings',

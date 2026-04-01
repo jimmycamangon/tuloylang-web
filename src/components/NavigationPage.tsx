@@ -9,7 +9,7 @@ type NavigationPageProps = {
 
 export default function NavigationPage({ showLinks = true }: NavigationPageProps) {
   return (
-    <nav className="w-full bg-white">
+    <nav className="w-full border-b border-border bg-background/90 backdrop-blur">
       <div className="mx-auto flex items-center gap-4 px-8 py-4">
         
         {/* Logo */}
@@ -20,7 +20,7 @@ export default function NavigationPage({ showLinks = true }: NavigationPageProps
         <img 
             src="/TuloyLang-Logov2.png"  
             alt="LOGO" 
-            className="h-8 w-auto object-contain"
+            className="h-8 w-auto object-contain dark:invert"
         />
         </a>
 
@@ -31,12 +31,12 @@ export default function NavigationPage({ showLinks = true }: NavigationPageProps
               <div key={link.label} className="flex items-center gap-4">
                 
                 {/* Separator */}
-                <span className="text-gray-300 select-none">|</span>
+                <span className="select-none text-muted-foreground/40">|</span>
 
                 {/* Link */}
                 <a
                   href={link.href}
-                  className="text-sm font-medium text-black hover:text-gray-600 transition"
+                  className="text-sm font-medium text-foreground transition hover:text-muted-foreground"
                 >
                   {link.label}
                 </a>

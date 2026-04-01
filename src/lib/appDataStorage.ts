@@ -1,11 +1,13 @@
 import type { AppData } from '../types/appData'
 import type { Habit } from '../types/habit'
+import type { WorkoutEntry } from '../types/workout'
 
 export const APP_DATA_STORAGE_KEY = 'tuloylang_app_data'
 
 const defaultAppData: AppData = {
-  version: 2,
+  version: 3,
   habits: [],
+  workouts: [],
 }
 
 function isHabit(value: unknown): value is Habit {
@@ -28,11 +30,32 @@ function isHabit(value: unknown): value is Habit {
   )
 }
 
+function isWorkoutEntry(value: unknown): value is WorkoutEntry {
+  if (!value || typeof value !== 'object') return false
+
+  const workout = value as Partial<WorkoutEntry>
+
+  return (
+    typeof workout.id === 'string' &&
+    typeof workout.title === 'string' &&
+    typeof workout.category === 'string' &&
+    typeof workout.durationMinutes === 'number' &&
+    Number.isFinite(workout.durationMinutes) &&
+    workout.durationMinutes > 0 &&
+    (workout.intensity === 'low' ||
+      workout.intensity === 'moderate' ||
+      workout.intensity === 'high') &&
+    typeof workout.performedAt === 'string' &&
+    typeof workout.notes === 'string' &&
+    typeof workout.createdAt === 'string'
+  )
+}
+
 function normalizeAppData(value: unknown): AppData {
   const parsed = value as Partial<AppData>
 
   return {
-    version: typeof parsed.version === 'number' ? parsed.version : 2,
+    version: typeof parsed.version === 'number' ? parsed.version : 3,
     habits: Array.isArray(parsed.habits)
       ? parsed.habits.filter(isHabit).map((habit) => {
           const normalizedHabit = habit as Habit & { isArchieved?: boolean }
@@ -45,6 +68,15 @@ function normalizeAppData(value: unknown): AppData {
             isArchived: normalizedHabit.isArchived ?? normalizedHabit.isArchieved ?? false,
           }
         })
+      : [],
+    workouts: Array.isArray(parsed.workouts)
+      ? parsed.workouts
+          .filter(isWorkoutEntry)
+          .map((workout) => ({
+            ...workout,
+            durationMinutes: Math.round(workout.durationMinutes),
+          }))
+          .sort((left, right) => right.performedAt.localeCompare(left.performedAt))
       : [],
   }
 }
@@ -156,6 +188,43 @@ export function setHabitCompletion(habitId: string, dateKey: string, completed: 
         completions: [...nextCompletions].sort(),
       }
     }),
+  }
+
+  saveAppData(nextData)
+  return nextData
+}
+
+export function saveWorkout(workout: WorkoutEntry) {
+  const currentData = readAppData()
+  const nextData: AppData = {
+    ...currentData,
+    workouts: [...currentData.workouts, workout].sort((left, right) =>
+      right.performedAt.localeCompare(left.performedAt),
+    ),
+  }
+
+  saveAppData(nextData)
+  return nextData
+}
+
+export function updateWorkout(updatedWorkout: WorkoutEntry) {
+  const currentData = readAppData()
+  const nextData: AppData = {
+    ...currentData,
+    workouts: currentData.workouts
+      .map((workout) => (workout.id === updatedWorkout.id ? updatedWorkout : workout))
+      .sort((left, right) => right.performedAt.localeCompare(left.performedAt)),
+  }
+
+  saveAppData(nextData)
+  return nextData
+}
+
+export function deleteWorkout(workoutId: string) {
+  const currentData = readAppData()
+  const nextData: AppData = {
+    ...currentData,
+    workouts: currentData.workouts.filter((workout) => workout.id !== workoutId),
   }
 
   saveAppData(nextData)

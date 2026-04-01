@@ -1,4 +1,5 @@
 import { navItems, routeMeta } from './dashboardConfig'
+import type { UserProfile } from '../../types/userProfile'
 
 type DashboardSidebarProps = {
   activeId: string
@@ -6,6 +7,8 @@ type DashboardSidebarProps = {
   mobile?: boolean
   onToggleExpanded: () => void
   onNavigate: (id: string) => void
+  profile: UserProfile
+  profileInitials: string
 }
 
 export default function DashboardSidebar({
@@ -14,6 +17,8 @@ export default function DashboardSidebar({
   mobile = false,
   onToggleExpanded,
   onNavigate,
+  profile,
+  profileInitials,
 }: DashboardSidebarProps) {
   const showFullLogo = mobile || expanded
 
@@ -77,13 +82,21 @@ export default function DashboardSidebar({
 
       <div className="mt-auto border-t border-border p-3">
         <div className="flex items-center gap-2 rounded-md bg-muted p-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent text-xs font-semibold text-foreground">
-            JC
-          </div>
+          {profile.avatarDataUrl ? (
+            <img
+              src={profile.avatarDataUrl}
+              alt={`${profile.fullName} avatar`}
+              className="h-9 w-9 rounded-md object-cover"
+            />
+          ) : (
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent text-xs font-semibold text-foreground">
+              {profileInitials}
+            </div>
+          )}
           {(expanded || mobile) && (
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-foreground">Jimmy Camangon</p>
-              <p className="muted-copy truncate text-xs">.NET Developer</p>
+              <p className="truncate text-sm font-medium text-foreground">{profile.fullName}</p>
+              <p className="muted-copy truncate text-xs">{profile.title}</p>
             </div>
           )}
         </div>

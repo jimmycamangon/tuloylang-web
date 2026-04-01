@@ -1,6 +1,7 @@
 import type { RefObject } from 'react'
-import { LogOut, Menu, Moon, Search, Sun } from 'lucide-react'
+import { Home, Menu, Moon, Search, Sun } from 'lucide-react'
 import type { RouteMeta } from './dashboardConfig'
+import type { UserProfile } from '../../types/userProfile'
 
 type DashboardTopbarProps = {
   currentRoute: RouteMeta
@@ -11,10 +12,11 @@ type DashboardTopbarProps = {
   onToggleTheme: () => void
   showProfileMenu: boolean
   onToggleProfileMenu: () => void
-  onNavigateProfile: () => void
   onNavigateSettings: () => void
-  onOpenLogoutConfirm: () => void
+  onOpenExitConfirm: () => void
   profileMenuRef: RefObject<HTMLDivElement | null>
+  profile: UserProfile
+  profileInitials: string
 }
 
 export default function DashboardTopbar({
@@ -26,10 +28,11 @@ export default function DashboardTopbar({
   onToggleTheme,
   showProfileMenu,
   onToggleProfileMenu,
-  onNavigateProfile,
   onNavigateSettings,
-  onOpenLogoutConfirm,
+  onOpenExitConfirm,
   profileMenuRef,
+  profile,
+  profileInitials,
 }: DashboardTopbarProps) {
   return (
     <header className="top-nav-shell flex h-16 items-center justify-between px-6">
@@ -82,22 +85,19 @@ export default function DashboardTopbar({
             className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-border bg-card transition-colors hover:bg-accent"
             aria-label="Open profile menu"
           >
-            <img
-              src="/TuloyLangIcon.png"
-              alt="Profile menu"
-              className="h-full w-full object-cover"
-            />
+            {profile.avatarDataUrl ? (
+              <img
+                src={profile.avatarDataUrl}
+                alt={`${profile.fullName} avatar`}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="text-xs font-semibold text-foreground">{profileInitials}</span>
+            )}
           </button>
 
           {showProfileMenu && (
             <div className="surface-card absolute right-0 top-12 z-50 w-52 p-2 shadow-xl">
-              <button
-                type="button"
-                onClick={onNavigateProfile}
-                className="w-full rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-accent"
-              >
-                Profile
-              </button>
               <button
                 type="button"
                 onClick={onNavigateSettings}
@@ -108,11 +108,11 @@ export default function DashboardTopbar({
               <div className="my-1 border-t border-border" />
               <button
                 type="button"
-                onClick={onOpenLogoutConfirm}
+                onClick={onOpenExitConfirm}
                 className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/40"
               >
-                <LogOut className="h-4 w-4" />
-                Logout
+                <Home className="h-4 w-4" />
+                Back to Home
               </button>
             </div>
           )}
