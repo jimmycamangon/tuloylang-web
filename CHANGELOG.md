@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.3](https://github.com/jimmycamangon/tuloylang-web/compare/v0.0.2...v0.0.3) (2026-04-02)
+
+
+### Features
+
+* Added Pages like Analytics, Workouts, Settings & fix: LandPage and StartPage ([4a092c6](https://github.com/jimmycamangon/tuloylang-web/commit/4a092c62b9e61a8aace8027007b1af98f84ddb79))
+
+
+### Bug Fixes
+
+* 404: NOT_FOUND production ([327ff22](https://github.com/jimmycamangon/tuloylang-web/commit/327ff221b71502186f2a13cd0a81f604e328c337))
+* Separation of concern (Dashboard Page) & feat: Habits Page (Added completion log) ([906e867](https://github.com/jimmycamangon/tuloylang-web/commit/906e867da4848e8c9c93ec274db37e19c26a84d1))
+
 ### 0.0.2 (2026-03-25)
 
 
