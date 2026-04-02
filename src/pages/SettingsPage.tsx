@@ -119,24 +119,6 @@ export default function SettingsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="surface-card p-6">
-        <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted-foreground">
-          Settings
-        </p>
-        <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold text-foreground">Preferences and profile</h2>
-            <p className="muted-copy mt-2 max-w-2xl text-sm">
-              Profile details now live inside Settings so your dashboard identity, appearance, and
-              app behavior can be managed in one place.
-            </p>
-          </div>
-          <div className="rounded-xl border border-border bg-muted/70 px-4 py-3 text-sm text-foreground">
-            Saved changes update the dashboard sidebar and app preferences.
-          </div>
-        </div>
-      </div>
-
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
         <article className="surface-card p-6">
           <div className="flex items-start gap-4">
@@ -311,9 +293,21 @@ export default function SettingsPage() {
           <article className="surface-card p-6">
             <h3 className="text-base font-semibold text-foreground">Connected Data</h3>
             <p className="muted-copy mt-2 text-sm">
-              Quick visibility into the data currently powering your dashboard, analytics, habits,
-              and workouts pages.
+              See the habit and workout data currently shaping your dashboard, analytics, and daily
+              tracking pages.
             </p>
+            <div className="mt-4 rounded-lg border border-border bg-muted/40 px-4 py-3">
+              <p className="text-sm font-medium text-foreground">Why export and restore exist</p>
+              <p className="muted-copy mt-2 text-sm leading-6">
+                TuloyLang stores app data locally in your browser instead of a cloud database.
+                Export lets you save a backup file, and Restore History lets you import that file
+                later if you return on this device or need to recover your progress.
+              </p>
+              <p className="muted-copy mt-2 text-sm leading-6">
+                For extra peace of mind, export a backup once in a while so you still have a copy
+                if browser data is cleared or you move to another device.
+              </p>
+            </div>
 
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <div className="rounded-lg bg-muted/50 px-3 py-3">
@@ -342,7 +336,8 @@ export default function SettingsPage() {
                 Export app data
               </button>
               <p className="muted-copy text-sm">
-                Export creates a JSON backup of the same shared app data used throughout the project.
+                Export creates a JSON backup of the same shared app data used throughout the
+                project, so you have a file you can later restore from the Start page.
               </p>
             </div>
           </article>
@@ -350,7 +345,7 @@ export default function SettingsPage() {
           <article className="surface-card p-6">
             <h3 className="text-base font-semibold text-foreground">Quick Links</h3>
             <p className="muted-copy mt-2 text-sm">
-              Jump into the pages most closely connected to the settings you manage here.
+              Head straight to the pages most closely connected to the settings you manage here.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">

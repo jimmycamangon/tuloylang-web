@@ -52,6 +52,18 @@ export default function StartPage() {
                 Jump into your dashboard right away, or restore a backup to bring back your habits,
                 workouts, and progress history.
               </p>
+              <p className="muted-copy mt-3 max-w-2xl text-sm leading-7">
+                TuloyLang keeps app data in this browser on this device. Restore History is here so
+                returning users can recover a previously exported backup when they come back.
+              </p>
+              <p className="mt-3 inline-flex max-w-2xl rounded-2xl border border-border bg-card px-4 py-3 text-sm leading-7 text-foreground shadow-sm">
+                Free to use for everyone. No account, subscription, or cloud database is required
+                for the core app experience.
+              </p>
+              <p className="muted-copy mt-3 max-w-2xl text-sm leading-7">
+                Privacy note: your data stays in this browser on this device. Export backups
+                regularly if you want an extra copy for safekeeping.
+              </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Button
@@ -82,7 +94,8 @@ export default function StartPage() {
                     <h2 className="text-lg font-semibold text-foreground">Restore your history</h2>
                     <p className="muted-copy mt-2 text-sm leading-7">
                       Import a TuloyLang backup JSON file to recover the same shared data used
-                      across Dashboard, Habits, Workouts, and Analytics.
+                      across Dashboard, Habits, Workouts, and Analytics. This is helpful because
+                      your progress is stored locally unless you export a backup file.
                     </p>
                   </div>
                 </div>
@@ -165,7 +178,8 @@ export default function StartPage() {
                     <p className="text-sm font-semibold text-foreground">Why keep import here?</p>
                     <p className="muted-copy mt-2 text-sm leading-6">
                       It gives users a clear recovery path before they enter the app, which makes
-                      restoring history feel safe and intentional.
+                      restoring history feel safe and intentional when they are moving back into a
+                      browser-based, locally stored app.
                     </p>
                   </div>
                 </div>

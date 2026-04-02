@@ -1,0 +1,49 @@
+TuloyLang Local Storage Evaluation
+
+Overview
+- TuloyLang stores app data in browser localStorage under the key `tuloylang_app_data`.
+- The current data model is lightweight and text-based.
+- There are no images, file uploads, or other large binary assets in storage.
+
+What grows over time
+- Habit completion history: one date string per completed day
+- Workout entries: one object per logged workout
+- Notes and descriptions: plain text fields
+
+What does not currently create major storage pressure
+- No image attachments
+- No file attachments
+- No rich text editor content
+- No duplicate daily snapshots
+- No server cache
+
+Estimated storage usage
+
+Habit completions
+- One daily habit completion history is roughly 4 KB to 6 KB per year
+- 10 daily habits over 5 years is roughly 200 KB to 300 KB
+- 20 daily habits over 5 years is roughly 400 KB to 600 KB
+
+Workout entries
+- One workout entry with short notes is often around 150 to 350 bytes
+- 3 workouts per week is about 150 workouts per year
+- Over 5 years that is about 750 workouts
+- Estimated storage for that is around 150 KB to 300 KB, depending on note length
+
+Overall practical estimate
+- 1 year of normal personal use: very safe
+- 3 years of normal personal use: still very safe
+- 5 years of normal personal use: likely still safe for most users
+- 10+ years: possible, but confidence drops because long-term browser retention is less reliable
+
+Important note about browser limits
+- Many browsers allow around 5 MB of localStorage per origin
+- TuloyLang should stay well below that for normal single-user behavior over several years
+- The bigger risk is not size alone, but long-term reliability
+
+Main long-term risks
+- Users may clear browser data
+- Users may switch browsers or devices
+- Private or incognito browsing may not preserve data
+- Restores may become harder if future app versions change the data format without migration support
+

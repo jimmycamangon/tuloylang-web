@@ -281,23 +281,6 @@ export default function DashboardPage() {
 
   return (
     <section className="space-y-6">
-      <div className="surface-card p-6">
-        <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted-foreground">
-          Progress Overview
-        </p>
-        <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold text-foreground">Your progress at a glance</h2>
-            <p className="muted-copy mt-2 max-w-2xl text-sm">
-              The dashboard is now reading from both your habits and workout logs, so your overview
-              stays aligned with the activity you record across the app.
-            </p>
-          </div>
-          <div className="rounded-xl border border-border bg-muted/70 px-4 py-3 text-sm text-foreground">
-            Habits and workouts now share the same saved app data.
-          </div>
-        </div>
-      </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {summaryCards.map((card) => (
@@ -347,7 +330,7 @@ export default function DashboardPage() {
         <article className="surface-card p-6">
           <h3 className="text-base font-semibold text-foreground">Recent Highlights</h3>
           <p className="muted-copy mt-2 text-sm">
-            A few useful signals pulled from your current habits data.
+            Here are a few quick highlights from your recent habit activity.
           </p>
 
           <div className="mt-6 space-y-3">
@@ -365,8 +348,8 @@ export default function DashboardPage() {
           <div>
             <h3 className="text-base font-semibold text-foreground">Habit Heatmap</h3>
             <p className="muted-copy mt-2 max-w-2xl text-sm">
-              A 12-week calendar of your daily habit follow-through. Darker cells mean a higher share
-              of scheduled habits were completed on that date.
+              This 12-week view helps you spot how consistently you have been showing up. Darker
+              cells mean you completed more of the habits scheduled for that day.
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">

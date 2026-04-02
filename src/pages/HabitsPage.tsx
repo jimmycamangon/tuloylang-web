@@ -3,7 +3,6 @@ import type { FormEvent } from 'react'
 import {
   APP_DATA_STORAGE_KEY,
   deleteHabitPermanently,
-  downloadAppDataFile,
   readAppData,
   saveHabit,
   setHabitCompletion,
@@ -157,20 +156,10 @@ export default function HabitsPage() {
                 {editingHabitId ? 'Edit Habit' : 'Create Habit'}
               </h2>
               <p className="muted-copy mt-2 text-sm">
-                Add habits, then check them off daily so your progress, streaks, and history stay
-                available after refresh.
+                Add the routines you want to keep up with, then check them off each day so your
+                streaks and progress stay easy to follow.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                downloadAppDataFile()
-                setFeedback(`Backup exported from localStorage key "${APP_DATA_STORAGE_KEY}".`)
-              }}
-              className="ui-button"
-            >
-              Export data
-            </button>
           </div>
         </div>
 
@@ -256,7 +245,8 @@ export default function HabitsPage() {
           <div>
             <h2 className="text-base font-semibold text-foreground">Active Habits</h2>
             <p className="muted-copy mt-2 text-sm">
-              Manage your current routines and check off what you completed today.
+              Keep track of the habits you are actively working on and mark what you finished
+              today.
             </p>
           </div>
           <div className="flex flex-wrap justify-end gap-2">

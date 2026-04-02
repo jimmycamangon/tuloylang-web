@@ -51,21 +51,35 @@ const previewSlides = [
     panel: (
       <div className="grid gap-3 md:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-2xl border border-white/60 bg-white/80 p-4 shadow-sm dark:border-border dark:bg-background/80">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-950/40">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-emerald-700">Habits</p>
-              <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-emerald-50">08</p>
-            </div>
-            <div className="rounded-xl bg-sky-50 p-3 dark:bg-sky-950/40">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-sky-700">Workouts</p>
-              <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-sky-50">03</p>
-            </div>
-            <div className="rounded-xl bg-amber-50 p-3 dark:bg-amber-950/40">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-amber-700">Today</p>
-              <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-amber-50">75%</p>
-            </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {[
+              ["Active Habits", "08", "2 archived in storage"],
+              ["Completed Today", "03", "1 still open today"],
+              ["Today Completion", "75%", "Based on today's scheduled habits"],
+              ["Best Streak", "12", "Longest active streak right now"],
+              ["Workouts This Week", "03", "165 total minutes logged"],
+            ].map(([label, value, detail]) => (
+              <div key={label} className="rounded-xl border border-slate-200 bg-white p-3 dark:border-border dark:bg-card">
+                <p className="text-sm text-muted-foreground">{label}</p>
+                <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-foreground">{value}</p>
+                <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-300">{detail}</p>
+              </div>
+            ))}
           </div>
           <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-border dark:bg-card">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900 dark:text-foreground">
+                  Weekly Habit Activity
+                </p>
+                <p className="mt-1 text-sm text-slate-500 dark:text-muted-foreground">
+                  Completion progress across the last 7 days based on scheduled habits.
+                </p>
+              </div>
+              <span className="rounded-full bg-accent px-3 py-1 text-xs font-medium text-foreground">
+                75% today
+              </span>
+            </div>
             <div className="flex items-end justify-between gap-2">
               {["M", "T", "W", "T", "F", "S", "S"].map((day, index) => (
                 <div key={day + index} className="flex flex-1 flex-col items-center gap-2">
@@ -87,10 +101,10 @@ const previewSlides = [
               Highlights
             </p>
             <div className="mt-3 space-y-2">
-              <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700 dark:bg-muted dark:text-foreground">
+              <div className="rounded-xl border border-border bg-muted/40 p-3 text-sm text-slate-700 dark:text-foreground">
                 Morning stretch is on a 12-day streak.
               </div>
-              <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700 dark:bg-muted dark:text-foreground">
+              <div className="rounded-xl border border-border bg-muted/40 p-3 text-sm text-slate-700 dark:text-foreground">
                 2 workouts logged this week so far.
               </div>
             </div>
@@ -276,12 +290,84 @@ export default function LandPage() {
           </div>
 
           {/* RIGHT */}
-          <div className="flex justify-center items-center">
-            <img
-              src="/Hero.png"
-              alt="Hero"
-              className="h-auto w-[250px] object-contain md:w-[400px] lg:w-[900px]"
-            />
+          <div className="relative flex w-full max-w-3xl justify-center items-center">
+            <div className="absolute inset-x-8 top-8 -z-10 h-48 rounded-full bg-gradient-to-r from-emerald-200/60 via-sky-200/50 to-amber-200/60 blur-3xl" />
+            <div className="w-full max-w-xl overflow-hidden rounded-[2rem] border border-border bg-gradient-to-br from-slate-50 via-white to-slate-100 p-4 shadow-2xl dark:from-card dark:via-card dark:to-muted/70 sm:p-5">
+              <div className="rounded-[1.6rem] border border-white/70 bg-white/90 p-4 shadow-sm dark:border-border dark:bg-background/90">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full bg-rose-300" />
+                    <span className="h-3 w-3 rounded-full bg-amber-300" />
+                    <span className="h-3 w-3 rounded-full bg-emerald-300" />
+                  </div>
+                  <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-500 dark:border-border dark:bg-card dark:text-muted-foreground">
+                    TuloyLang overview
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {[
+                    ["Active Habits", "08", "2 archived in storage"],
+                    ["Completed Today", "03", "1 still open today"],
+                    ["Today Completion", "75%", "Based on today's scheduled habits"],
+                    ["Best Streak", "12", "Longest active streak right now"],
+                  ].map(([label, value, detail]) => (
+                    <div
+                      key={label}
+                      className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-border dark:bg-card"
+                    >
+                      <p className="text-sm text-muted-foreground">{label}</p>
+                      <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-foreground">
+                        {value}
+                      </p>
+                      <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-300">
+                        {detail}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 dark:border-border dark:bg-card">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-foreground">
+                        Weekly Habit Activity
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-muted-foreground">
+                        Completion progress across the last 7 days based on scheduled habits.
+                      </p>
+                    </div>
+                    <div className="rounded-full bg-accent px-3 py-1 text-xs font-medium text-foreground">
+                      75% today
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex h-36 items-end justify-between gap-2">
+                    {[
+                      ["M", 58],
+                      ["T", 82],
+                      ["W", 64],
+                      ["T", 92],
+                      ["F", 72],
+                      ["S", 48],
+                      ["S", 80],
+                    ].map(([day, height]) => (
+                      <div key={`${day}-${height}`} className="flex flex-1 flex-col items-center gap-2">
+                        <div className="flex h-24 w-full items-end rounded-full bg-slate-100 p-1.5 dark:bg-muted">
+                          <div
+                            className="w-full rounded-full bg-sky-500"
+                            style={{ height: `${height}%` }}
+                          />
+                        </div>
+                        <span className="text-[11px] text-slate-500 dark:text-muted-foreground">
+                          {day}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>

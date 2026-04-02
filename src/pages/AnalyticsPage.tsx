@@ -196,23 +196,6 @@ export default function AnalyticsPage() {
 
   return (
     <section className="space-y-6">
-      <div className="surface-card p-6">
-        <p className="text-sm font-medium uppercase tracking-[0.24em] text-muted-foreground">
-          Analytics
-        </p>
-        <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold text-foreground">Detailed progress analytics</h2>
-            <p className="muted-copy mt-2 max-w-2xl text-sm">
-              This page expands the dashboard heatmap into a clickable activity explorer so you can
-              inspect what happened on each day across habits and workouts.
-            </p>
-          </div>
-          <div className="rounded-xl border border-border bg-muted/70 px-4 py-3 text-sm text-foreground">
-            Click any heatmap day to inspect completions, misses, and workouts.
-          </div>
-        </div>
-      </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <article className="surface-card p-5">
@@ -253,8 +236,8 @@ export default function AnalyticsPage() {
             <div>
               <h3 className="text-base font-semibold text-foreground">Interactive Activity Heatmap</h3>
               <p className="muted-copy mt-2 text-sm">
-                The last 24 weeks of activity. Color strength reflects total completed habits plus
-                workouts logged for each day.
+                Explore the last 24 weeks of your activity at a glance. Stronger color means more
+                completed habits and workouts logged on that day.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-muted-foreground">
