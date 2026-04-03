@@ -319,7 +319,7 @@ export default function WorkoutsPage() {
             history.
           </div>
         ) : (
-          <div className="space-y-3 overflow-auto rounded-md border border-border p-2">
+          <div className="space-y-3 overflow-auto h-150 rounded-md border border-border p-2">
             {workouts.map((workout) => (
               <article key={workout.id} className="rounded-lg border border-border bg-card p-4">
                 <div className="flex items-start justify-between gap-3">

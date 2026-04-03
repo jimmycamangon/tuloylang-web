@@ -325,7 +325,7 @@ export default function AnalyticsPage() {
           </p>
 
           {selectedCell ? (
-            <div className="mt-6 space-y-4">
+            <div className="mt-6 space-y-4 overflow-auto h-64">
               <div className="rounded-xl border border-border bg-muted/30 p-4">
                 <p className="text-sm font-semibold text-foreground">
                   {fullDateFormatter.format(selectedCell.date)}

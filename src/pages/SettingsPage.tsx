@@ -136,8 +136,7 @@ export default function SettingsPage() {
             <div>
               <h3 className="text-base font-semibold text-foreground">Profile Section</h3>
               <p className="muted-copy mt-2 text-sm">
-                This information is used in the dashboard shell so your workspace feels personal
-                instead of hard-coded.
+                Add a few personal details so your dashboard feels more like your own space.
               </p>
             </div>
           </div>
@@ -248,7 +247,7 @@ export default function SettingsPage() {
           <article className="surface-card p-6">
             <h3 className="text-base font-semibold text-foreground">Appearance</h3>
             <p className="muted-copy mt-2 text-sm">
-              These controls use the same theme and sidebar preferences that the dashboard layout reads.
+              Make the app feel more comfortable to use with the look and layout that suits you best.
             </p>
 
             <div className="mt-6 space-y-4">
