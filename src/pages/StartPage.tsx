@@ -11,24 +11,45 @@ export default function StartPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [feedback, setFeedback] = useState('')
   const [isImporting, setIsImporting] = useState(false)
+  const [pendingImportText, setPendingImportText] = useState('')
+  const [pendingImportName, setPendingImportName] = useState('')
+  const [showImportOptions, setShowImportOptions] = useState(false)
 
   async function handleImportChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     if (!file) return
 
-    setIsImporting(true)
-
     try {
       const fileText = await file.text()
-      const importedData = importAppData(fileText)
-      setFeedback(
-        `Imported ${importedData.habits.length} habits and ${importedData.workouts.length} workouts successfully.`,
-      )
-      navigate('/dashboard')
+      setPendingImportText(fileText)
+      setPendingImportName(file.name)
+      setShowImportOptions(true)
     } catch {
       setFeedback('Import failed. Please choose a valid TuloyLang backup JSON file.')
     } finally {
       event.target.value = ''
+    }
+  }
+
+  function handleImport(mode: 'replace' | 'merge') {
+    if (!pendingImportText) return
+
+    setIsImporting(true)
+
+    try {
+      const importedData = importAppData(pendingImportText, mode)
+      setFeedback(
+        `${
+          mode === 'replace' ? 'Replaced' : 'Merged'
+        } local data with ${importedData.habits.length} habits and ${importedData.workouts.length} workouts.`,
+      )
+      setShowImportOptions(false)
+      setPendingImportText('')
+      setPendingImportName('')
+      navigate('/dashboard')
+    } catch {
+      setFeedback('Import failed. Please choose a valid TuloyLang backup JSON file.')
+    } finally {
       setIsImporting(false)
     }
   }
@@ -83,6 +104,24 @@ export default function StartPage() {
                   <FileUp className="mr-2 h-4 w-4" />
                   {isImporting ? 'Importing backup...' : 'Restore History'}
                 </Button>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-border bg-muted/40 p-4 text-sm text-foreground">
+                Restore now supports both modes:
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl bg-card p-3">
+                    <p className="font-medium">Replace current data</p>
+                    <p className="muted-copy mt-1 text-sm">
+                      Use the backup as the new source of truth for this browser.
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-card p-3">
+                    <p className="font-medium">Merge backup data</p>
+                    <p className="muted-copy mt-1 text-sm">
+                      Add backup habits, workouts, and templates into existing local data.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="mt-8 rounded-3xl border border-border bg-card/80 p-5 shadow-sm">
@@ -201,6 +240,57 @@ export default function StartPage() {
           onChange={handleImportChange}
           className="hidden"
         />
+
+        {showImportOptions && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/40 p-4">
+            <div className="surface-card w-full max-w-lg p-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-foreground">Restore Backup</h3>
+              <p className="muted-copy mt-2 text-sm leading-6">
+                Choose how to apply <span className="font-medium text-foreground">{pendingImportName}</span>.
+              </p>
+
+              <div className="mt-5 grid gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleImport('replace')}
+                  disabled={isImporting}
+                  className="rounded-2xl border border-border bg-card p-4 text-left transition-colors hover:bg-accent"
+                >
+                  <p className="text-sm font-semibold text-foreground">Replace current data</p>
+                  <p className="muted-copy mt-1 text-sm">
+                    Overwrite this browser&apos;s current habits, workouts, templates, and goals.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleImport('merge')}
+                  disabled={isImporting}
+                  className="rounded-2xl border border-border bg-card p-4 text-left transition-colors hover:bg-accent"
+                >
+                  <p className="text-sm font-semibold text-foreground">Merge with current data</p>
+                  <p className="muted-copy mt-1 text-sm">
+                    Keep current data and combine it with matching items from the backup.
+                  </p>
+                </button>
+              </div>
+
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowImportOptions(false)
+                    setPendingImportText('')
+                    setPendingImportName('')
+                  }}
+                  className="ui-button"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
       <Footer />
     </>

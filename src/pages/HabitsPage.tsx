@@ -11,6 +11,7 @@ import {
 } from '../lib/appDataStorage'
 import {
   getCurrentStreak,
+  getHabitScheduleLabel,
   getLastCompletedDate,
   getLocalDateKey,
   getRecentDays,
@@ -18,21 +19,34 @@ import {
   isHabitScheduledForDate,
   parseDateKey,
 } from '../lib/habitMetrics'
-import type { Frequency, Habit } from '../types/habit'
+import type { Frequency, Habit, Weekday } from '../types/habit'
+
+type HabitFilter = 'all' | 'due-today' | 'open' | 'completed'
 
 type HabitFormState = {
   name: string
   description: string
   frequency: Frequency
+  scheduledDays: Weekday[]
 }
 
 const initialFormState: HabitFormState = {
   name: '',
   description: '',
   frequency: 'daily',
+  scheduledDays: [],
 }
 
 const shortDateFormatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
+const weekdayOptions: Array<{ value: Weekday; label: string }> = [
+  { value: 1, label: 'Mon' },
+  { value: 2, label: 'Tue' },
+  { value: 3, label: 'Wed' },
+  { value: 4, label: 'Thu' },
+  { value: 5, label: 'Fri' },
+  { value: 6, label: 'Sat' },
+  { value: 0, label: 'Sun' },
+]
 
 export default function HabitsPage() {
   const [form, setForm] = useState<HabitFormState>(initialFormState)
@@ -40,6 +54,7 @@ export default function HabitsPage() {
   const [feedback, setFeedback] = useState('')
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null)
   const [deletingHabit, setDeletingHabit] = useState<Habit | null>(null)
+  const [activeFilter, setActiveFilter] = useState<HabitFilter>('all')
   const today = useMemo(() => new Date(), [])
   const todayKey = getLocalDateKey(today)
   const recentDays = useMemo(() => getRecentDays(today), [today])
@@ -52,6 +67,25 @@ export default function HabitsPage() {
   const archivedHabits = habits.filter((habit) => habit.isArchived)
   const shouldScrollArchivedHabits = archivedHabits.length > 2
   const completedTodayCount = activeHabits.filter((habit) => hasCompletionOnDate(habit, todayKey)).length
+  const dueTodayCount = activeHabits.filter((habit) => isHabitScheduledForDate(habit, today)).length
+  const openTodayCount = activeHabits.filter(
+    (habit) => isHabitScheduledForDate(habit, today) && !hasCompletionOnDate(habit, todayKey),
+  ).length
+  const filteredActiveHabits = activeHabits.filter((habit) => {
+    const dueToday = isHabitScheduledForDate(habit, today)
+    const completedToday = hasCompletionOnDate(habit, todayKey)
+
+    if (activeFilter === 'due-today') return dueToday
+    if (activeFilter === 'open') return dueToday && !completedToday
+    if (activeFilter === 'completed') return completedToday
+    return true
+  })
+  const filterOptions: Array<{ id: HabitFilter; label: string; count: number }> = [
+    { id: 'all', label: 'All', count: activeHabits.length },
+    { id: 'due-today', label: 'Due Today', count: dueTodayCount },
+    { id: 'open', label: 'Open', count: openTodayCount },
+    { id: 'completed', label: 'Completed Today', count: completedTodayCount },
+  ]
 
   function resetForm() {
     setForm(initialFormState)
@@ -64,8 +98,22 @@ export default function HabitsPage() {
       name: habit.name,
       description: habit.description,
       frequency: habit.frequency,
+      scheduledDays: habit.scheduledDays ?? [],
     })
     setFeedback(`Editing "${habit.name}". Update the fields and save your changes.`)
+  }
+
+  function toggleScheduledDay(day: Weekday) {
+    setForm((prev) => {
+      const nextDays = prev.scheduledDays.includes(day)
+        ? prev.scheduledDays.filter((item) => item !== day)
+        : [...prev.scheduledDays, day].sort((left, right) => left - right)
+
+      return {
+        ...prev,
+        scheduledDays: nextDays,
+      }
+    })
   }
 
   function handleArchiveToggle(habitId: string, isArchived: boolean) {
@@ -114,11 +162,17 @@ export default function HabitsPage() {
       return
     }
 
+    if (form.frequency === 'custom' && form.scheduledDays.length === 0) {
+      setFeedback('Choose at least one day for a custom schedule.')
+      return
+    }
+
     const habitToSave: Habit = {
       id: editingHabitId ?? crypto.randomUUID(),
       name: trimmedName,
       description: trimmedDescription,
       frequency: form.frequency,
+      scheduledDays: form.frequency === 'custom' ? form.scheduledDays : [],
       createdAt:
         habits.find((habit) => habit.id === editingHabitId)?.createdAt ?? new Date().toISOString(),
       isArchived: habits.find((habit) => habit.id === editingHabitId)?.isArchived ?? false,
@@ -212,9 +266,40 @@ export default function HabitsPage() {
               className="ui-input"
             >
               <option value="daily">Daily</option>
+              <option value="weekdays">Weekdays</option>
               <option value="weekend">Weekend</option>
+              <option value="custom">Custom weekdays</option>
             </select>
           </div>
+
+          {form.frequency === 'custom' && (
+            <div>
+              <p className="mb-1.5 block text-sm font-medium text-foreground">Scheduled days</p>
+              <div className="flex flex-wrap gap-2">
+                {weekdayOptions.map((day) => {
+                  const selected = form.scheduledDays.includes(day.value)
+
+                  return (
+                    <button
+                      key={day.value}
+                      type="button"
+                      onClick={() => toggleScheduledDay(day.value)}
+                      className={`rounded-full border px-3 py-2 text-sm transition-colors ${
+                        selected
+                          ? 'border-blue-600 bg-blue-600 text-white'
+                          : 'border-border bg-card text-foreground hover:bg-accent'
+                      }`}
+                    >
+                      {day.label}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="muted-copy mt-2 text-sm">
+                Pick the specific days when this habit should appear as scheduled.
+              </p>
+            </div>
+          )}
 
           <div className="flex items-center gap-3">
             <button type="submit" className="ui-button bg-blue-600 text-white hover:bg-blue-700">
@@ -259,13 +344,38 @@ export default function HabitsPage() {
           </div>
         </div>
 
+        <div className="mb-5 flex flex-wrap gap-2">
+          {filterOptions.map((filter) => {
+            const selected = activeFilter === filter.id
+
+            return (
+              <button
+                key={filter.id}
+                type="button"
+                onClick={() => setActiveFilter(filter.id)}
+                className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                  selected
+                    ? 'border-blue-600 bg-blue-600 text-white'
+                    : 'border-border bg-card text-foreground hover:bg-accent'
+                }`}
+              >
+                {filter.label} ({filter.count})
+              </button>
+            )
+          })}
+        </div>
+
         {activeHabits.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
             No active habits yet. Submit the form to create one or restore an archived habit.
           </div>
+        ) : filteredActiveHabits.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
+            No habits match the current filter. Try another view to see the rest of your active habits.
+          </div>
         ) : (
           <div className="space-y-3 overflow-auto h-100 border rounded-md p-2">
-            {activeHabits
+            {filteredActiveHabits
               .slice()
               .reverse()
               .map((habit) => (
@@ -287,7 +397,7 @@ export default function HabitsPage() {
                       <p className="muted-copy mt-1 text-sm">{habit.description}</p>
                     </div>
                     <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-200">
-                      {habit.frequency}
+                      {getHabitScheduleLabel(habit)}
                     </span>
                   </div>
 

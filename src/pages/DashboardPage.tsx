@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { readAppData } from '../lib/appDataStorage'
 import {
   getCurrentStreak,
+  getHabitScheduleLabel,
   getLastCompletedDate,
   getLocalDateKey,
   getRecentDays,
@@ -10,6 +11,7 @@ import {
   isHabitScheduledForDate,
   parseDateKey,
 } from '../lib/habitMetrics'
+import type { WeeklyGoals } from '../types/goal'
 import type { Habit } from '../types/habit'
 import type { WorkoutEntry } from '../types/workout'
 
@@ -67,6 +69,7 @@ function getHeatmapIntensityClass(percentage: number, scheduled: number) {
 export default function DashboardPage() {
   const [habits, setHabits] = useState<Habit[]>([])
   const [workouts, setWorkouts] = useState<WorkoutEntry[]>([])
+  const [goals, setGoals] = useState<WeeklyGoals>({ habitCompletions: 7, workoutSessions: 3 })
   const today = useMemo(() => new Date(), [])
   const todayKey = getLocalDateKey(today)
   const recentDays = useMemo(() => getRecentDays(today), [today])
@@ -76,6 +79,7 @@ export default function DashboardPage() {
       const appData = readAppData()
       setHabits(appData.habits)
       setWorkouts(appData.workouts)
+      setGoals(appData.goals)
     }
 
     loadData()
@@ -107,6 +111,55 @@ export default function DashboardPage() {
     0,
   )
   const recentWorkouts = workouts.slice(0, 4)
+  const weeklyHabitCompletions = activeHabits.reduce(
+    (sum, habit) =>
+      sum +
+      (habit.completions ?? []).filter((entry) => {
+        const completedAt = parseDateKey(entry)
+        return completedAt >= startOfCurrentWeek && completedAt <= today
+      }).length,
+    0,
+  )
+  const weeklyGoalCards = [
+    {
+      label: 'Habit Goal',
+      current: weeklyHabitCompletions,
+      target: goals.habitCompletions,
+      detail: 'Weekly completion target',
+    },
+    {
+      label: 'Workout Goal',
+      current: workoutsThisWeek.length,
+      target: goals.workoutSessions,
+      detail: 'Weekly session target',
+    },
+  ]
+  const dueTodayHabits = activeHabits
+    .filter((habit) => isHabitScheduledForDate(habit, today))
+    .slice()
+    .sort((left, right) => {
+      const leftDone = hasCompletionOnDate(left, todayKey) ? 1 : 0
+      const rightDone = hasCompletionOnDate(right, todayKey) ? 1 : 0
+      if (leftDone !== rightDone) return leftDone - rightDone
+
+      return left.name.localeCompare(right.name)
+    })
+
+  const dueTodayBySchedule = useMemo(() => {
+    const groups = new Map<string, Habit[]>()
+
+    dueTodayHabits.forEach((habit) => {
+      const label = getHabitScheduleLabel(habit)
+      const current = groups.get(label) ?? []
+      groups.set(label, [...current, habit])
+    })
+
+    return [...groups.entries()].map(([label, habits]) => ({
+      label,
+      habits,
+      completedCount: habits.filter((habit) => hasCompletionOnDate(habit, todayKey)).length,
+    }))
+  }, [dueTodayHabits, todayKey])
 
   const weeklyActivity = recentDays.map((day) => {
     const scheduled = activeHabits.filter((habit) => isHabitScheduledForDate(habit, day.date)).length
@@ -186,7 +239,7 @@ export default function DashboardPage() {
   const summaryCards = [
     {
       label: 'Active Habits',
-      value: String(activeHabits.length).padStart(2, '0'),
+      value: String(activeHabits.length),
       detail:
         activeHabits.length > 0
           ? `${archivedHabits.length} archived in storage`
@@ -194,7 +247,7 @@ export default function DashboardPage() {
     },
     {
       label: 'Completed Today',
-      value: String(completedTodayCount).padStart(2, '0'),
+      value: String(completedTodayCount),
       detail:
         scheduledTodayCount > 0
           ? `${scheduledTodayCount - completedTodayCount} still open today`
@@ -204,7 +257,7 @@ export default function DashboardPage() {
       label: 'Today Completion',
       value: `${completionRate}%`,
       detail:
-        scheduledTodayCount > 0 ? 'Based on today’s scheduled habits' : 'Will update once habits are scheduled',
+        scheduledTodayCount > 0 ? "Based on today's scheduled habits" : 'Will update once habits are scheduled',
     },
     {
       label: 'Best Streak',
@@ -213,7 +266,7 @@ export default function DashboardPage() {
     },
     {
       label: 'Workouts This Week',
-      value: String(workoutsThisWeek.length).padStart(2, '0'),
+      value: String(workoutsThisWeek.length),
       detail:
         workouts.length > 0
           ? `${totalWorkoutMinutes} total minutes logged`
@@ -292,6 +345,44 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-2">
+        {weeklyGoalCards.map((goalCard) => {
+          const percentage = Math.min(Math.round((goalCard.current / goalCard.target) * 100), 100)
+          const remaining = Math.max(goalCard.target - goalCard.current, 0)
+          const complete = goalCard.current >= goalCard.target
+
+          return (
+            <article key={goalCard.label} className="surface-card p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm text-muted-foreground">{goalCard.label}</p>
+                  <p className="mt-2 text-3xl font-semibold text-foreground">
+                    {goalCard.current}/{goalCard.target}
+                  </p>
+                  <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-300">
+                    {complete ? 'Weekly goal reached.' : `${remaining} more to hit this week.`}
+                  </p>
+                </div>
+                <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
+                  {percentage}%
+                </span>
+              </div>
+
+              <div className="mt-5 h-3 overflow-hidden rounded-full bg-muted">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    complete ? 'bg-emerald-500' : 'bg-blue-500'
+                  }`}
+                  style={{ width: `${Math.max(percentage, goalCard.current > 0 ? 8 : 0)}%` }}
+                />
+              </div>
+
+              <p className="muted-copy mt-3 text-sm">{goalCard.detail}</p>
+            </article>
+          )
+        })}
+      </div>
+
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.9fr)]">
         <article className="surface-card p-6">
           <div className="flex items-start justify-between gap-3">
@@ -333,7 +424,7 @@ export default function DashboardPage() {
             Here are a few quick highlights from your recent habit activity.
           </p>
 
-          <div className="mt-6 space-y-3">
+          <div className="mt-6 max-h-[22rem] space-y-3 overflow-y-auto pr-2">
             {recentHighlights.map((highlight) => (
               <div key={highlight} className="rounded-xl border border-border bg-muted/40 p-4">
                 <p className="text-sm text-foreground">{highlight}</p>
@@ -342,6 +433,85 @@ export default function DashboardPage() {
           </div>
         </article>
       </div>
+
+      <article className="surface-card p-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-foreground">Due Today</h3>
+            <p className="muted-copy mt-2 text-sm">
+              A schedule-aware view of the habits that are actually expected today.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+            <span className="rounded-full bg-muted px-3 py-1">{dueTodayHabits.length} due today</span>
+            <span className="rounded-full bg-muted px-3 py-1">
+              {completedTodayCount} completed
+            </span>
+          </div>
+        </div>
+
+        {dueTodayHabits.length === 0 ? (
+          <div className="mt-6 rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
+            No habits are scheduled for today. Add a habit or adjust your schedule from the Habits page.
+          </div>
+        ) : (
+          <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+            <div className="max-h-[28rem] space-y-3 overflow-y-auto pr-2">
+              {dueTodayBySchedule.map((group) => (
+                <div key={group.label} className="rounded-xl border border-border bg-card p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-foreground">{group.label}</p>
+                    <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
+                      {group.completedCount}/{group.habits.length}
+                    </span>
+                  </div>
+                  <p className="muted-copy mt-2 text-sm">
+                    {group.habits.length === 1
+                      ? '1 habit follows this schedule today.'
+                      : `${group.habits.length} habits follow this schedule today.`}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid max-h-[28rem] gap-3 overflow-y-auto pr-2">
+              {dueTodayHabits.map((habit) => {
+                const completedToday = hasCompletionOnDate(habit, todayKey)
+                const currentStreak = getCurrentStreak(habit, today)
+
+                return (
+                  <article key={habit.id} className="rounded-xl border border-border bg-card p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h4 className="text-sm font-semibold text-foreground">{habit.name}</h4>
+                        <p className="muted-copy mt-1 text-sm">{habit.description}</p>
+                      </div>
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                          completedToday
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-200'
+                            : 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-200'
+                        }`}
+                      >
+                        {completedToday ? 'Done' : 'Open'}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full bg-blue-50 px-3 py-1 font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-200">
+                        {getHabitScheduleLabel(habit)}
+                      </span>
+                      <span className="rounded-full bg-muted px-3 py-1 font-medium text-foreground">
+                        {currentStreak} day{currentStreak === 1 ? '' : 's'} streak
+                      </span>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </article>
 
       <article className="surface-card p-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -433,7 +603,7 @@ export default function DashboardPage() {
           <div>
             <h3 className="text-base font-semibold text-foreground">Active Habit Snapshot</h3>
             <p className="muted-copy mt-2 text-sm">
-              The habits that currently need attention, ordered to keep today’s open items visible.
+              The habits that currently need attention, ordered to keep today's open items visible.
             </p>
           </div>
           <Link to="/habits" className="ui-button w-fit">
@@ -446,7 +616,7 @@ export default function DashboardPage() {
             No active habits yet. Create one in the Habits page and the dashboard will populate automatically.
           </div>
         ) : (
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <div className="mt-6 grid max-h-[34rem] gap-4 overflow-y-auto pr-2 md:grid-cols-2">
             {habitsForPreview.map((habit) => {
               const lastCompletedDate = getLastCompletedDate(habit)
               const currentStreak = getCurrentStreak(habit, today)
@@ -475,7 +645,9 @@ export default function DashboardPage() {
                       <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                         Frequency
                       </p>
-                      <p className="mt-1 text-sm font-semibold text-foreground">{habit.frequency}</p>
+                      <p className="mt-1 text-sm font-semibold text-foreground">
+                        {getHabitScheduleLabel(habit)}
+                      </p>
                     </div>
                     <div className="rounded-lg bg-muted/50 px-3 py-2">
                       <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
@@ -522,7 +694,7 @@ export default function DashboardPage() {
             No workout sessions logged yet. Add your first workout to start populating this section.
           </div>
         ) : (
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <div className="mt-6 grid max-h-[34rem] gap-4 overflow-y-auto pr-2 md:grid-cols-2">
             {recentWorkouts.map((workout) => (
               <article key={workout.id} className="rounded-xl border border-border bg-card p-4">
                 <div className="flex items-start justify-between gap-3">

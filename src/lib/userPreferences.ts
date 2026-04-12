@@ -1,8 +1,11 @@
 import type { UserProfile } from '../types/userProfile'
+import type { ReminderSettings } from '../types/reminder'
 
 export const USER_PROFILE_STORAGE_KEY = 'tuloylang_user_profile'
 export const THEME_STORAGE_KEY = 'theme'
 export const NAV_EXPANDED_STORAGE_KEY = 'nav_expanded'
+export const REMINDER_SETTINGS_STORAGE_KEY = 'tuloylang_reminder_settings'
+export const REMINDER_LAST_SENT_STORAGE_KEY = 'tuloylang_reminder_last_sent'
 
 const defaultUserProfile: UserProfile = {
   fullName: 'New User',
@@ -12,8 +15,17 @@ const defaultUserProfile: UserProfile = {
   avatarDataUrl: '',
 }
 
+const defaultReminderSettings: ReminderSettings = {
+  enabled: false,
+  time: '19:00',
+}
+
 export function getDefaultUserProfile(): UserProfile {
   return { ...defaultUserProfile }
+}
+
+export function getDefaultReminderSettings(): ReminderSettings {
+  return { ...defaultReminderSettings }
 }
 
 export function readUserProfile() {
@@ -46,6 +58,37 @@ export function readUserProfile() {
 export function saveUserProfile(profile: UserProfile) {
   localStorage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(profile))
   return profile
+}
+
+export function readReminderSettings() {
+  const saved = localStorage.getItem(REMINDER_SETTINGS_STORAGE_KEY)
+  if (!saved) return getDefaultReminderSettings()
+
+  try {
+    const parsed = JSON.parse(saved) as Partial<ReminderSettings>
+    return {
+      enabled: typeof parsed.enabled === 'boolean' ? parsed.enabled : defaultReminderSettings.enabled,
+      time:
+        typeof parsed.time === 'string' && /^\d{2}:\d{2}$/.test(parsed.time)
+          ? parsed.time
+          : defaultReminderSettings.time,
+    }
+  } catch {
+    return getDefaultReminderSettings()
+  }
+}
+
+export function saveReminderSettings(settings: ReminderSettings) {
+  localStorage.setItem(REMINDER_SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+  return settings
+}
+
+export function readLastReminderSentDate() {
+  return localStorage.getItem(REMINDER_LAST_SENT_STORAGE_KEY) ?? ''
+}
+
+export function saveLastReminderSentDate(dateKey: string) {
+  localStorage.setItem(REMINDER_LAST_SENT_STORAGE_KEY, dateKey)
 }
 
 export function getProfileInitials(profile: UserProfile) {

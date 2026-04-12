@@ -1,13 +1,43 @@
 import type { AppData } from '../types/appData'
+import type { WeeklyGoals } from '../types/goal'
 import type { Habit } from '../types/habit'
-import type { WorkoutEntry } from '../types/workout'
+import type { WorkoutEntry, WorkoutTemplate } from '../types/workout'
+import { normalizeScheduledDays } from './habitMetrics'
 
 export const APP_DATA_STORAGE_KEY = 'tuloylang_app_data'
 
+const defaultGoals: WeeklyGoals = {
+  habitCompletions: 7,
+  workoutSessions: 3,
+}
+
 const defaultAppData: AppData = {
-  version: 3,
+  version: 6,
   habits: [],
   workouts: [],
+  workoutTemplates: [],
+  goals: defaultGoals,
+}
+
+function normalizeGoals(value: unknown): WeeklyGoals {
+  if (!value || typeof value !== 'object') return defaultGoals
+
+  const goals = value as Partial<WeeklyGoals>
+
+  return {
+    habitCompletions:
+      typeof goals.habitCompletions === 'number' &&
+      Number.isFinite(goals.habitCompletions) &&
+      goals.habitCompletions > 0
+        ? Math.round(goals.habitCompletions)
+        : defaultGoals.habitCompletions,
+    workoutSessions:
+      typeof goals.workoutSessions === 'number' &&
+      Number.isFinite(goals.workoutSessions) &&
+      goals.workoutSessions > 0
+        ? Math.round(goals.workoutSessions)
+        : defaultGoals.workoutSessions,
+  }
 }
 
 function isHabit(value: unknown): value is Habit {
@@ -19,8 +49,16 @@ function isHabit(value: unknown): value is Habit {
     typeof habit.id === 'string' &&
     typeof habit.name === 'string' &&
     typeof habit.description === 'string' &&
-    (habit.frequency === 'daily' || habit.frequency === 'weekend') &&
+    (habit.frequency === 'daily' ||
+      habit.frequency === 'weekdays' ||
+      habit.frequency === 'weekend' ||
+      habit.frequency === 'custom') &&
     typeof habit.createdAt === 'string' &&
+    (habit.scheduledDays === undefined ||
+      (Array.isArray(habit.scheduledDays) &&
+        habit.scheduledDays.every(
+          (entry) => Number.isInteger(entry) && entry >= 0 && entry <= 6,
+        ))) &&
     (habit.completions === undefined ||
       (Array.isArray(habit.completions) &&
         habit.completions.every((entry) => typeof entry === 'string'))) &&
@@ -51,17 +89,38 @@ function isWorkoutEntry(value: unknown): value is WorkoutEntry {
   )
 }
 
+function isWorkoutTemplate(value: unknown): value is WorkoutTemplate {
+  if (!value || typeof value !== 'object') return false
+
+  const template = value as Partial<WorkoutTemplate>
+
+  return (
+    typeof template.id === 'string' &&
+    typeof template.title === 'string' &&
+    typeof template.category === 'string' &&
+    typeof template.durationMinutes === 'number' &&
+    Number.isFinite(template.durationMinutes) &&
+    template.durationMinutes > 0 &&
+    (template.intensity === 'low' ||
+      template.intensity === 'moderate' ||
+      template.intensity === 'high') &&
+    typeof template.notes === 'string' &&
+    typeof template.createdAt === 'string'
+  )
+}
+
 function normalizeAppData(value: unknown): AppData {
   const parsed = value as Partial<AppData>
 
   return {
-    version: typeof parsed.version === 'number' ? parsed.version : 3,
+    version: typeof parsed.version === 'number' ? parsed.version : 6,
     habits: Array.isArray(parsed.habits)
       ? parsed.habits.filter(isHabit).map((habit) => {
           const normalizedHabit = habit as Habit & { isArchieved?: boolean }
 
           return {
             ...normalizedHabit,
+            scheduledDays: normalizeScheduledDays(normalizedHabit.scheduledDays),
             completions: Array.isArray(normalizedHabit.completions)
               ? [...new Set(normalizedHabit.completions)].sort()
               : [],
@@ -78,6 +137,16 @@ function normalizeAppData(value: unknown): AppData {
           }))
           .sort((left, right) => right.performedAt.localeCompare(left.performedAt))
       : [],
+    workoutTemplates: Array.isArray(parsed.workoutTemplates)
+      ? parsed.workoutTemplates
+          .filter(isWorkoutTemplate)
+          .map((template) => ({
+            ...template,
+            durationMinutes: Math.round(template.durationMinutes),
+          }))
+          .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      : [],
+    goals: normalizeGoals(parsed.goals),
   }
 }
 
@@ -96,9 +165,55 @@ export function saveAppData(appData: AppData) {
   localStorage.setItem(APP_DATA_STORAGE_KEY, JSON.stringify(appData))
 }
 
-export function importAppData(jsonText: string) {
+function mergeAppData(currentData: AppData, importedData: AppData): AppData {
+  const mergedHabits = [...currentData.habits]
+  importedData.habits.forEach((habit) => {
+    const index = mergedHabits.findIndex((item) => item.id === habit.id)
+    if (index >= 0) mergedHabits[index] = habit
+    else mergedHabits.push(habit)
+  })
+
+  const mergedWorkouts = [...currentData.workouts]
+  importedData.workouts.forEach((workout) => {
+    const index = mergedWorkouts.findIndex((item) => item.id === workout.id)
+    if (index >= 0) mergedWorkouts[index] = workout
+    else mergedWorkouts.push(workout)
+  })
+
+  const mergedTemplates = [...currentData.workoutTemplates]
+  importedData.workoutTemplates.forEach((template) => {
+    const index = mergedTemplates.findIndex((item) => item.id === template.id)
+    if (index >= 0) mergedTemplates[index] = template
+    else mergedTemplates.push(template)
+  })
+
+  return {
+    ...currentData,
+    habits: mergedHabits.sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
+    workouts: mergedWorkouts.sort((left, right) => right.performedAt.localeCompare(left.performedAt)),
+    workoutTemplates: mergedTemplates.sort((left, right) =>
+      right.createdAt.localeCompare(left.createdAt),
+    ),
+    goals: importedData.goals,
+    version: Math.max(currentData.version, importedData.version),
+  }
+}
+
+export function updateWeeklyGoals(goals: WeeklyGoals) {
+  const currentData = readAppData()
+  const nextData: AppData = {
+    ...currentData,
+    goals: normalizeGoals(goals),
+  }
+
+  saveAppData(nextData)
+  return nextData
+}
+
+export function importAppData(jsonText: string, mode: 'replace' | 'merge' = 'replace') {
   const parsed = JSON.parse(jsonText) as unknown
-  const nextData = normalizeAppData(parsed)
+  const importedData = normalizeAppData(parsed)
+  const nextData = mode === 'merge' ? mergeAppData(readAppData(), importedData) : importedData
 
   saveAppData(nextData)
   return nextData
@@ -225,6 +340,30 @@ export function deleteWorkout(workoutId: string) {
   const nextData: AppData = {
     ...currentData,
     workouts: currentData.workouts.filter((workout) => workout.id !== workoutId),
+  }
+
+  saveAppData(nextData)
+  return nextData
+}
+
+export function saveWorkoutTemplate(template: WorkoutTemplate) {
+  const currentData = readAppData()
+  const nextData: AppData = {
+    ...currentData,
+    workoutTemplates: [...currentData.workoutTemplates, template].sort((left, right) =>
+      right.createdAt.localeCompare(left.createdAt),
+    ),
+  }
+
+  saveAppData(nextData)
+  return nextData
+}
+
+export function deleteWorkoutTemplate(templateId: string) {
+  const currentData = readAppData()
+  const nextData: AppData = {
+    ...currentData,
+    workoutTemplates: currentData.workoutTemplates.filter((template) => template.id !== templateId),
   }
 
   saveAppData(nextData)

@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Footer from '../Footer'
+import { readAppData } from '../../lib/appDataStorage'
+import { getLocalDateKey, hasCompletionOnDate, isHabitScheduledForDate } from '../../lib/habitMetrics'
 import {
   getProfileInitials,
+  readLastReminderSentDate,
+  readReminderSettings,
   readNavExpandedPreference,
   readThemePreference,
   readUserProfile,
+  saveLastReminderSentDate,
   saveNavExpandedPreference,
   saveThemePreference,
 } from '../../lib/userPreferences'
@@ -26,6 +31,7 @@ export default function DashboardLayout() {
   const [highlightedIndex, setHighlightedIndex] = useState(0)
   const [isDark, setIsDark] = useState(false)
   const [profile, setProfile] = useState(readUserProfile)
+  const [reminderSettings, setReminderSettings] = useState(readReminderSettings)
   const profileMenuRef = useRef<HTMLDivElement | null>(null)
   const commandItemRefs = useRef<Array<HTMLButtonElement | null>>([])
 
@@ -62,6 +68,7 @@ export default function DashboardLayout() {
     setIsDark(readThemePreference() === 'dark')
     setExpanded(readNavExpandedPreference())
     setProfile(readUserProfile())
+    setReminderSettings(readReminderSettings())
   }, [])
 
   useEffect(() => {
@@ -76,6 +83,7 @@ export default function DashboardLayout() {
   useEffect(() => {
     function syncProfile() {
       setProfile(readUserProfile())
+      setReminderSettings(readReminderSettings())
     }
 
     window.addEventListener('storage', syncProfile)
@@ -125,6 +133,53 @@ export default function DashboardLayout() {
     const item = commandItemRefs.current[highlightedIndex]
     if (item) item.scrollIntoView({ block: 'nearest' })
   }, [filteredCommandItems, highlightedIndex, showCommandPalette])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return
+
+    function maybeSendReminder() {
+      const settings = readReminderSettings()
+      setReminderSettings(settings)
+
+      if (!settings.enabled || Notification.permission !== 'granted') return
+
+      const now = new Date()
+      const todayKey = getLocalDateKey(now)
+      if (readLastReminderSentDate() === todayKey) return
+
+      const [hours, minutes] = settings.time.split(':').map(Number)
+      if (Number.isNaN(hours) || Number.isNaN(minutes)) return
+
+      const target = new Date(now)
+      target.setHours(hours, minutes, 0, 0)
+      if (now < target) return
+
+      const appData = readAppData()
+      const openDueHabits = appData.habits.filter((habit) => {
+        if (habit.isArchived) return false
+        if (!isHabitScheduledForDate(habit, now)) return false
+        return !hasCompletionOnDate(habit, todayKey)
+      })
+
+      if (openDueHabits.length === 0) return
+
+      const body =
+        openDueHabits.length === 1
+          ? `You still have 1 habit open today: ${openDueHabits[0].name}.`
+          : `You still have ${openDueHabits.length} habits open today.`
+
+      new Notification('TuloyLang reminder', {
+        body,
+        tag: `tuloylang-reminder-${todayKey}`,
+      })
+      saveLastReminderSentDate(todayKey)
+    }
+
+    maybeSendReminder()
+    const intervalId = window.setInterval(maybeSendReminder, 60_000)
+
+    return () => window.clearInterval(intervalId)
+  }, [])
 
   function handleNavigate(id: string) {
     const path = routeMeta[id]?.path
@@ -229,6 +284,15 @@ export default function DashboardLayout() {
           />
 
           <main className="w-full flex-1 p-6">
+            {reminderSettings.enabled &&
+              typeof window !== 'undefined' &&
+              'Notification' in window &&
+              Notification.permission !== 'granted' && (
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                  Reminders are enabled, but browser notification permission is not granted yet.
+                  Open Settings to enable notifications.
+                </div>
+              )}
             <div className="muted-copy mb-4 flex flex-wrap items-center gap-1 text-sm">
               {breadcrumbTrail.map((crumb, index) => {
                 const isLast = index === breadcrumbTrail.length - 1

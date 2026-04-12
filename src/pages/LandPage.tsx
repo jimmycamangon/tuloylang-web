@@ -15,7 +15,7 @@ const featureCards = [
   {
     title: "Habit momentum that stays visible",
     description:
-      "Track daily and weekend routines, protect streaks, and keep recent history easy to scan.",
+      "Track daily, weekday, weekend, or custom routines while keeping streaks and recent history easy to scan.",
     icon: Repeat,
     accent: "from-emerald-100 via-emerald-50 to-white",
   },

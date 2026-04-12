@@ -23,6 +23,7 @@ const workoutTimeFormatter = new Intl.DateTimeFormat(undefined, {
   hour: 'numeric',
   minute: '2-digit',
 })
+const weekdayNameFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'long' })
 
 type HeatmapCell = {
   key: string
@@ -41,6 +42,13 @@ function startOfWeek(date: Date) {
   const result = new Date(date)
   result.setHours(0, 0, 0, 0)
   result.setDate(result.getDate() - result.getDay())
+  return result
+}
+
+function endOfWeek(date: Date) {
+  const result = startOfWeek(date)
+  result.setDate(result.getDate() + 6)
+  result.setHours(23, 59, 59, 999)
   return result
 }
 
@@ -192,6 +200,83 @@ export default function AnalyticsPage() {
       .reverse()
   }, [flatCells])
 
+  const insightCards = useMemo(() => {
+    const currentWeekStart = startOfWeek(today)
+    const currentWeekEnd = endOfWeek(today)
+    const previousWeekStart = new Date(currentWeekStart)
+    previousWeekStart.setDate(previousWeekStart.getDate() - 7)
+    const previousWeekEnd = endOfWeek(previousWeekStart)
+
+    const currentWeekCells = flatCells.filter(
+      (cell) => cell.date >= currentWeekStart && cell.date <= currentWeekEnd,
+    )
+    const previousWeekCells = flatCells.filter(
+      (cell) => cell.date >= previousWeekStart && cell.date <= previousWeekEnd,
+    )
+
+    const currentWeekScore = currentWeekCells.reduce((sum, cell) => sum + cell.score, 0)
+    const previousWeekScore = previousWeekCells.reduce((sum, cell) => sum + cell.score, 0)
+    const scoreDelta = currentWeekScore - previousWeekScore
+
+    const strongestDay = [...flatCells]
+      .filter((cell) => cell.score > 0)
+      .sort((left, right) => {
+        if (right.score !== left.score) return right.score - left.score
+        return right.date.getTime() - left.date.getTime()
+      })[0]
+
+    const weekdayMissMap = new Map<number, { scheduled: number; missed: number }>()
+
+    flatCells.forEach((cell) => {
+      const weekday = cell.date.getDay()
+      const current = weekdayMissMap.get(weekday) ?? { scheduled: 0, missed: 0 }
+      weekdayMissMap.set(weekday, {
+        scheduled: current.scheduled + cell.scheduledHabits.length,
+        missed: current.missed + cell.openHabits.length,
+      })
+    })
+
+    const mostMissedWeekday = [...weekdayMissMap.entries()]
+      .filter(([, value]) => value.scheduled > 0 && value.missed > 0)
+      .map(([weekday, value]) => ({
+        weekday,
+        missedRate: Math.round((value.missed / value.scheduled) * 100),
+        missed: value.missed,
+      }))
+      .sort((left, right) => right.missedRate - left.missedRate || right.missed - left.missed)[0]
+
+    return [
+      {
+        label: 'This Week Vs Last Week',
+        title:
+          scoreDelta === 0
+            ? 'You are matching last week so far.'
+            : scoreDelta > 0
+              ? `${scoreDelta} more activity points than last week.`
+              : `${Math.abs(scoreDelta)} fewer activity points than last week.`,
+        detail: `This week: ${currentWeekScore} - Last week: ${previousWeekScore}`,
+      },
+      {
+        label: 'Strongest Activity Day',
+        title: strongestDay
+          ? `${weekdayNameFormatter.format(strongestDay.date)} stands out most.`
+          : 'No standout day yet.',
+        detail: strongestDay
+          ? `${strongestDay.completedHabits.length} habits completed and ${strongestDay.workouts.length} workouts logged on ${strongestDay.date.toLocaleDateString()}.`
+          : 'Keep logging habits and workouts to surface your strongest day.',
+      },
+      {
+        label: 'Most Missed Day',
+        title: mostMissedWeekday
+          ? `${weekdayNameFormatter.format(new Date(2024, 0, mostMissedWeekday.weekday + 7))} needs more support.`
+          : 'No repeated miss pattern yet.',
+        detail: mostMissedWeekday
+          ? `${mostMissedWeekday.missedRate}% of scheduled habits were missed on this weekday.`
+          : 'Your recent schedule does not show a consistent missed day.',
+      },
+    ]
+  }, [flatCells, today])
+
   const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
   return (
@@ -228,6 +313,16 @@ export default function AnalyticsPage() {
             {summary.strongestHabit ? `${summary.strongestHabit.streak} day streak` : 'Log habits to surface streaks'}
           </p>
         </article>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        {insightCards.map((insight) => (
+          <article key={insight.label} className="surface-card p-5">
+            <p className="text-sm text-muted-foreground">{insight.label}</p>
+            <p className="mt-3 text-xl font-semibold text-foreground">{insight.title}</p>
+            <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-300">{insight.detail}</p>
+          </article>
+        ))}
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.9fr)]">
@@ -325,7 +420,7 @@ export default function AnalyticsPage() {
           </p>
 
           {selectedCell ? (
-            <div className="mt-6 space-y-4">
+            <div className="mt-6 max-h-96 space-y-4 overflow-y-auto pr-2">
               <div className="rounded-xl border border-border bg-muted/30 p-4">
                 <p className="text-sm font-semibold text-foreground">
                   {fullDateFormatter.format(selectedCell.date)}
@@ -438,7 +533,7 @@ export default function AnalyticsPage() {
               No activity has been logged yet.
             </div>
           ) : (
-            <div className="mt-6 space-y-3">
+            <div className="mt-6 max-h-96 space-y-3 overflow-y-auto pr-2">
               {consistencyTimeline.map((cell) => (
                 <button
                   key={cell.key}
@@ -474,7 +569,7 @@ export default function AnalyticsPage() {
               No workout categories yet. Log sessions on the Workouts page to build this section.
             </div>
           ) : (
-            <div className="mt-6 space-y-3">
+            <div className="mt-6 max-h-[42rem] space-y-3 overflow-y-auto pr-2">
               {workoutCategoryBreakdown.map((item) => (
                 <div key={item.category} className="rounded-xl border border-border bg-card p-4">
                   <div className="flex items-center justify-between gap-3">
