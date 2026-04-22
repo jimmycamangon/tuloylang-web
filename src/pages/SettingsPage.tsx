@@ -10,18 +10,15 @@ import {
 import {
   getDefaultUserProfile,
   getProfileInitials,
-  readReminderSettings,
   readNavExpandedPreference,
   readThemePreference,
   readUserProfile,
-  saveReminderSettings,
   saveNavExpandedPreference,
   saveThemePreference,
   saveUserProfile,
   USER_PROFILE_STORAGE_KEY,
 } from '../lib/userPreferences'
 import type { WeeklyGoals } from '../types/goal'
-import type { ReminderSettings } from '../types/reminder'
 import type { UserProfile } from '../types/userProfile'
 
 type ProfileFormState = UserProfile
@@ -48,10 +45,6 @@ export default function SettingsPage() {
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [dataVersion, setDataVersion] = useState(0)
   const [goalsForm, setGoalsForm] = useState<WeeklyGoals>(() => readAppData().goals)
-  const [reminderForm, setReminderForm] = useState<ReminderSettings>(() => readReminderSettings())
-  const [notificationPermission, setNotificationPermission] = useState(() =>
-    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default',
-  )
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
@@ -69,10 +62,6 @@ export default function SettingsPage() {
       setTheme(readThemePreference())
       setNavExpanded(readNavExpandedPreference())
       setGoalsForm(latestAppData.goals)
-      setReminderForm(readReminderSettings())
-      setNotificationPermission(
-        typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default',
-      )
       setDataVersion((prev) => prev + 1)
     }
 
@@ -128,33 +117,6 @@ export default function SettingsPage() {
     setGoalsForm(nextData.goals)
     setDataVersion((prev) => prev + 1)
     setFeedback(`Weekly goals saved to localStorage under "${APP_DATA_STORAGE_KEY}".`)
-  }
-
-  function handleReminderSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-
-    if (!/^\d{2}:\d{2}$/.test(reminderForm.time)) {
-      setFeedback('Choose a valid reminder time.')
-      return
-    }
-
-    saveReminderSettings(reminderForm)
-    setFeedback('Reminder settings saved locally for this browser.')
-  }
-
-  async function handleNotificationPermission() {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
-      setFeedback('This browser does not support notifications.')
-      return
-    }
-
-    const permission = await Notification.requestPermission()
-    setNotificationPermission(permission)
-    setFeedback(
-      permission === 'granted'
-        ? 'Browser notifications enabled.'
-        : 'Notification permission was not granted.',
-    )
   }
 
   async function handleAvatarChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -460,64 +422,6 @@ export default function SettingsPage() {
 
               <button type="submit" className="ui-button bg-blue-600 text-white hover:bg-blue-700">
                 Save weekly goals
-              </button>
-            </form>
-          </article>
-
-          <article className="surface-card p-6">
-            <h3 className="text-base font-semibold text-foreground">Reminders</h3>
-            <p className="muted-copy mt-2 text-sm">
-              Set a daily reminder time for this browser. Notifications can help bring you back to
-              your open habits, but they only work while the app is open in the browser.
-            </p>
-
-            <form onSubmit={handleReminderSubmit} className="mt-6 space-y-4">
-              <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-foreground">
-                Notification permission:{' '}
-                <span className="font-medium capitalize">{notificationPermission}</span>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <button type="button" onClick={handleNotificationPermission} className="ui-button">
-                  Enable notifications
-                </button>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <input
-                  id="reminder-enabled"
-                  type="checkbox"
-                  checked={reminderForm.enabled}
-                  onChange={(event) =>
-                    setReminderForm((prev) => ({ ...prev, enabled: event.target.checked }))
-                  }
-                  className="h-4 w-4 rounded border-border"
-                />
-                <label htmlFor="reminder-enabled" className="text-sm font-medium text-foreground">
-                  Turn on daily reminder
-                </label>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="reminder-time"
-                  className="mb-1.5 block text-sm font-medium text-foreground"
-                >
-                  Reminder time
-                </label>
-                <input
-                  id="reminder-time"
-                  type="time"
-                  value={reminderForm.time}
-                  onChange={(event) =>
-                    setReminderForm((prev) => ({ ...prev, time: event.target.value }))
-                  }
-                  className="ui-input max-w-xs"
-                />
-              </div>
-
-              <button type="submit" className="ui-button bg-blue-600 text-white hover:bg-blue-700">
-                Save reminder settings
               </button>
             </form>
           </article>
