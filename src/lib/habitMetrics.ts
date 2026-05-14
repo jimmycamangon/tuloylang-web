@@ -1,7 +1,35 @@
-import type { Habit } from '../types/habit'
+import type { Habit, Weekday } from '../types/habit'
 
 const weekdayFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'short' })
 const shortDateFormatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
+const longWeekdayFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'long' })
+
+const weekdayOrder: Weekday[] = [0, 1, 2, 3, 4, 5, 6]
+
+export function normalizeScheduledDays(days?: number[]): Weekday[] {
+  if (!Array.isArray(days)) return []
+
+  return [...new Set(days)]
+    .filter((day): day is Weekday => Number.isInteger(day) && day >= 0 && day <= 6)
+    .sort((left, right) => left - right)
+}
+
+export function getHabitScheduledDays(habit: Habit): Weekday[] {
+  if (habit.frequency === 'daily') return weekdayOrder
+  if (habit.frequency === 'weekdays') return [1, 2, 3, 4, 5]
+  if (habit.frequency === 'weekend') return [0, 6]
+  return normalizeScheduledDays(habit.scheduledDays)
+}
+
+export function getHabitScheduleLabel(habit: Habit) {
+  if (habit.frequency === 'daily') return 'Daily'
+  if (habit.frequency === 'weekdays') return 'Weekdays'
+  if (habit.frequency === 'weekend') return 'Weekend'
+
+  const days = getHabitScheduledDays(habit)
+  if (days.length === 0) return 'Custom'
+  return days.map((day) => longWeekdayFormatter.format(new Date(2024, 0, day + 7))).join(', ')
+}
 
 export function getLocalDateKey(date: Date) {
   const year = date.getFullYear()
@@ -16,10 +44,8 @@ export function parseDateKey(dateKey: string) {
 }
 
 export function isHabitScheduledForDate(habit: Habit, date: Date) {
-  if (habit.frequency === 'daily') return true
-
   const day = date.getDay()
-  return day === 0 || day === 6
+  return getHabitScheduledDays(habit).includes(day as Weekday)
 }
 
 export function hasCompletionOnDate(habit: Habit, dateKey: string) {

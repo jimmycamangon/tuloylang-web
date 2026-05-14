@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Footer from '../Footer'
 import {
-  getProfileInitials,
   applyThemePreference,
+  getProfileInitials,
   readNavExpandedPreference,
   readThemePreference,
   readUserProfile,

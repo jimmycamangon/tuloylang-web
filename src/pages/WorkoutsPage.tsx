@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   APP_DATA_STORAGE_KEY,
+  deleteWorkoutTemplate,
   deleteWorkout,
   readAppData,
   saveWorkout,
+  saveWorkoutTemplate,
   updateWorkout,
 } from '../lib/appDataStorage'
-import type { WorkoutEntry, WorkoutIntensity } from '../types/workout'
+import type { WorkoutEntry, WorkoutIntensity, WorkoutTemplate } from '../types/workout'
 
 type WorkoutFormState = {
   title: string
@@ -46,12 +48,15 @@ function formatWorkoutDate(value: string) {
 export default function WorkoutsPage() {
   const [form, setForm] = useState<WorkoutFormState>(initialFormState)
   const [workouts, setWorkouts] = useState<WorkoutEntry[]>([])
+  const [templates, setTemplates] = useState<WorkoutTemplate[]>([])
   const [feedback, setFeedback] = useState('')
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null)
   const [deletingWorkout, setDeletingWorkout] = useState<WorkoutEntry | null>(null)
 
   useEffect(() => {
-    setWorkouts(readAppData().workouts)
+    const appData = readAppData()
+    setWorkouts(appData.workouts)
+    setTemplates(appData.workoutTemplates)
   }, [])
 
   const totalMinutes = useMemo(
@@ -133,6 +138,56 @@ export default function WorkoutsPage() {
     )
   }
 
+  function handleSaveTemplate() {
+    const trimmedTitle = form.title.trim()
+    const trimmedCategory = form.category.trim()
+    const trimmedNotes = form.notes.trim()
+    const durationMinutes = Number(form.durationMinutes)
+
+    if (!trimmedTitle || !trimmedCategory) {
+      setFeedback('Add a workout name and category before saving a template.')
+      return
+    }
+
+    if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+      setFeedback('Enter a valid duration before saving a template.')
+      return
+    }
+
+    const templateToSave: WorkoutTemplate = {
+      id: crypto.randomUUID(),
+      title: trimmedTitle,
+      category: trimmedCategory,
+      durationMinutes: Math.round(durationMinutes),
+      intensity: form.intensity,
+      notes: trimmedNotes,
+      createdAt: new Date().toISOString(),
+    }
+
+    const nextData = saveWorkoutTemplate(templateToSave)
+    setTemplates(nextData.workoutTemplates)
+    setFeedback(`Template "${templateToSave.title}" saved for future workout logs.`)
+  }
+
+  function applyTemplate(template: WorkoutTemplate) {
+    setForm((prev) => ({
+      ...prev,
+      title: template.title,
+      category: template.category,
+      durationMinutes: String(template.durationMinutes),
+      intensity: template.intensity,
+      notes: template.notes,
+    }))
+    setEditingWorkoutId(null)
+    setFeedback(`Template "${template.title}" applied to the workout form.`)
+  }
+
+  function handleDeleteTemplate(template: WorkoutTemplate) {
+    const nextData = deleteWorkoutTemplate(template.id)
+    setTemplates(nextData.workoutTemplates)
+    setFeedback(`Template "${template.title}" was removed.`)
+  }
+
   function confirmDelete() {
     if (!deletingWorkout) return
 
@@ -179,6 +234,66 @@ export default function WorkoutsPage() {
             </p>
             <p className="mt-1 text-xl font-semibold text-foreground">{totalMinutes}</p>
           </div>
+        </div>
+
+        <div className="mb-5 rounded-xl border border-border bg-card p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Workout Templates</h3>
+              <p className="muted-copy mt-1 text-sm">
+                Save your current form as a reusable routine, then apply it anytime before logging.
+              </p>
+            </div>
+            <button type="button" onClick={handleSaveTemplate} className="ui-button w-fit">
+              Save as template
+            </button>
+          </div>
+
+          {templates.length === 0 ? (
+            <div className="mt-4 rounded-lg border border-dashed border-border px-4 py-4 text-sm text-muted-foreground">
+              No templates yet. Build one from the form and save it here.
+            </div>
+          ) : (
+            <div className="mt-4 grid max-h-[18rem] gap-3 overflow-y-auto pr-2">
+              {templates.slice(0, 4).map((template) => (
+                <article key={template.id} className="rounded-lg border border-border bg-muted/30 p-4">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="text-sm font-semibold text-foreground">{template.title}</h4>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${intensityStyles[template.intensity]}`}
+                        >
+                          {template.intensity}
+                        </span>
+                      </div>
+                      <p className="muted-copy mt-1 text-sm">{template.category}</p>
+                      <p className="muted-copy mt-2 text-sm">
+                        {template.durationMinutes} min
+                        {template.notes ? ` - ${template.notes}` : ''}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => applyTemplate(template)}
+                        className="ui-button"
+                      >
+                        Use template
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTemplate(template)}
+                        className="ui-button-danger"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -319,7 +434,7 @@ export default function WorkoutsPage() {
             history.
           </div>
         ) : (
-          <div className="space-y-3 overflow-auto h-150 rounded-md border border-border p-2">
+          <div className="max-h-[42rem] space-y-3 overflow-auto rounded-md border border-border p-2">
             {workouts.map((workout) => (
               <article key={workout.id} className="rounded-lg border border-border bg-card p-4">
                 <div className="flex items-start justify-between gap-3">
