@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.4](https://github.com/jimmycamangon/tuloylang-web/compare/v0.0.3...v0.0.4) (2026-05-14)
+
+
+### Features
+
+* add scheduling, goals, templates, analytics insights, reminders, safer restore, and UI polish ([b69a3d8](https://github.com/jimmycamangon/tuloylang-web/commit/b69a3d8221c80140952c54973d640c79cb0a4d0d))
+* add scheduling, goals, templates, analytics insights, reminders, safer restore, and UI polish ([d5a9507](https://github.com/jimmycamangon/tuloylang-web/commit/d5a9507d3e654a2f005211bf36844ddce2406e89))
+
+
+### Bug Fixes
+
+* Added overflow/scrollable for Analytics and Workout Pages ([f7e4c01](https://github.com/jimmycamangon/tuloylang-web/commit/f7e4c0143b1de3a27844fb08947fa45130c69ba4))
+
 ### [0.0.3](https://github.com/jimmycamangon/tuloylang-web/compare/v0.0.2...v0.0.3) (2026-04-02)
 
 
