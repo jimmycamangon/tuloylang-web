@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Footer from '../Footer'
 import {
   getProfileInitials,
+  applyThemePreference,
   readNavExpandedPreference,
   readThemePreference,
   readUserProfile,
@@ -17,14 +18,14 @@ export default function DashboardLayout() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(() => readNavExpandedPreference())
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showExitConfirm, setShowExitConfirm] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [commandQuery, setCommandQuery] = useState('')
   const [highlightedIndex, setHighlightedIndex] = useState(0)
-  const [isDark, setIsDark] = useState(false)
+  const [isDark, setIsDark] = useState(() => readThemePreference() === 'dark')
   const [profile, setProfile] = useState(readUserProfile)
   const profileMenuRef = useRef<HTMLDivElement | null>(null)
   const commandItemRefs = useRef<Array<HTMLButtonElement | null>>([])
@@ -59,14 +60,9 @@ export default function DashboardLayout() {
   }, [commandItems, commandQuery])
 
   useEffect(() => {
-    setIsDark(readThemePreference() === 'dark')
-    setExpanded(readNavExpandedPreference())
-    setProfile(readUserProfile())
-  }, [])
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', isDark)
-    saveThemePreference(isDark ? 'dark' : 'light')
+    const nextTheme = isDark ? 'dark' : 'light'
+    applyThemePreference(nextTheme)
+    saveThemePreference(nextTheme)
   }, [isDark])
 
   useEffect(() => {

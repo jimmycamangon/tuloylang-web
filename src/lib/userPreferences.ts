@@ -67,6 +67,11 @@ export function saveThemePreference(theme: 'light' | 'dark') {
   localStorage.setItem(THEME_STORAGE_KEY, theme)
 }
 
+export function applyThemePreference(theme = readThemePreference()) {
+  document.documentElement.classList.toggle('dark', theme === 'dark')
+  return theme
+}
+
 export function readNavExpandedPreference() {
   const saved = localStorage.getItem(NAV_EXPANDED_STORAGE_KEY)
   return saved === null ? false : saved === 'true'

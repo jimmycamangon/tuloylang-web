@@ -10,11 +10,14 @@ import DashboardPage from './pages/DashboardPage.tsx'
 import AnalyticsPage from './pages/AnalyticsPage.tsx'
 import SettingsPage from './pages/SettingsPage.tsx'
 import WorkoutsPage from './pages/WorkoutsPage.tsx'
+import { applyThemePreference } from './lib/userPreferences.ts'
 
 import '@fontsource/inter/400.css'
 import '@fontsource/inter/500.css'
 import '@fontsource/inter/600.css'
 import '@fontsource/inter/700.css'
+
+applyThemePreference()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { APP_DATA_STORAGE_KEY, downloadAppDataFile, readAppData } from '../lib/appDataStorage'
 import {
+  applyThemePreference,
   getDefaultUserProfile,
   getProfileInitials,
   readNavExpandedPreference,
@@ -40,7 +41,7 @@ export default function SettingsPage() {
   const [dataVersion, setDataVersion] = useState(0)
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark')
+    applyThemePreference(theme)
     saveThemePreference(theme)
   }, [theme])
 
