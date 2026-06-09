@@ -182,6 +182,27 @@ export default function WorkoutsPage() {
     setFeedback(`Template "${template.title}" applied to the workout form.`)
   }
 
+  function handleQuickLog(template: WorkoutTemplate) {
+    const now = new Date()
+    const offsetMs = now.getTimezoneOffset() * 60_000
+    const performedAt = new Date(now.getTime() - offsetMs).toISOString()
+
+    const workoutToSave: WorkoutEntry = {
+      id: crypto.randomUUID(),
+      title: template.title,
+      category: template.category,
+      durationMinutes: template.durationMinutes,
+      intensity: template.intensity,
+      performedAt,
+      notes: template.notes,
+      createdAt: now.toISOString(),
+    }
+
+    const nextData = saveWorkout(workoutToSave)
+    setWorkouts(nextData.workouts)
+    setFeedback(`"${template.title}" logged instantly!`)
+  }
+
   function handleDeleteTemplate(template: WorkoutTemplate) {
     const nextData = deleteWorkoutTemplate(template.id)
     setTemplates(nextData.workoutTemplates)
@@ -280,6 +301,13 @@ export default function WorkoutsPage() {
                         className="ui-button"
                       >
                         Use template
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickLog(template)}
+                        className="ui-button bg-blue-600 text-white hover:bg-blue-700"
+                      >
+                        Log now
                       </button>
                       <button
                         type="button"
