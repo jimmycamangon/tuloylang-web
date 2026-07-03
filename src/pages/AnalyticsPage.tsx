@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  Area,
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import { readAppData } from '../lib/appDataStorage'
 import {
   getCurrentStreak,
@@ -277,6 +288,25 @@ export default function AnalyticsPage() {
     ]
   }, [flatCells, today])
 
+  const weeklyTrend = useMemo(() => {
+    return heatmapWeeks.slice(-12).map((week) => {
+      const scheduled = week.reduce((sum, cell) => sum + cell.scheduledHabits.length, 0)
+      const completed = week.reduce((sum, cell) => sum + cell.completedHabits.length, 0)
+      const workoutCount = week.reduce((sum, cell) => sum + cell.workouts.length, 0)
+      const weekStart = week[0]?.date ?? today
+
+      return {
+        label: `${monthLabelFormatter.format(weekStart)} ${weekStart.getDate()}`,
+        completionRate: scheduled > 0 ? Math.round((completed / scheduled) * 100) : 0,
+        workouts: workoutCount,
+        scheduled,
+        completed,
+      }
+    })
+  }, [heatmapWeeks, today])
+
+  const hasTrendData = weeklyTrend.some((week) => week.scheduled > 0 || week.workouts > 0)
+
   const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
   return (
@@ -324,6 +354,80 @@ export default function AnalyticsPage() {
           </article>
         ))}
       </div>
+
+      <article className="surface-card min-w-0 p-4 sm:p-6">
+        <h3 className="text-base font-semibold text-foreground">Weekly Trend</h3>
+        <p className="muted-copy mt-2 text-sm">
+          Habit completion rate and workout sessions per week across the last 12 weeks, so you can
+          see whether consistency is heading up or down.
+        </p>
+
+        {hasTrendData ? (
+          <div className="mt-6 h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={weeklyTrend} margin={{ top: 8, right: 0, left: -16, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                  tickLine={false}
+                  axisLine={{ stroke: 'var(--border)' }}
+                />
+                <YAxis
+                  yAxisId="rate"
+                  domain={[0, 100]}
+                  unit="%"
+                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  yAxisId="workouts"
+                  orientation="right"
+                  allowDecimals={false}
+                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 12,
+                    color: 'var(--foreground)',
+                    fontSize: 12,
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar
+                  yAxisId="workouts"
+                  dataKey="workouts"
+                  name="Workout sessions"
+                  fill="#3b82f6"
+                  opacity={0.75}
+                  radius={[4, 4, 0, 0]}
+                  barSize={18}
+                />
+                <Area
+                  yAxisId="rate"
+                  type="monotone"
+                  dataKey="completionRate"
+                  name="Habit completion %"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  fill="#10b981"
+                  fillOpacity={0.15}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="mt-6 rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
+            No trend data yet. Complete habits or log workouts and this chart will fill in week by
+            week.
+          </div>
+        )}
+      </article>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.9fr)]">
         <article className="surface-card min-w-0 overflow-hidden p-4 sm:p-6">

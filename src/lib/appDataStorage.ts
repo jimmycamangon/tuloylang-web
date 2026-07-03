@@ -12,7 +12,7 @@ const defaultGoals: WeeklyGoals = {
 }
 
 const defaultAppData: AppData = {
-  version: 6,
+  version: 7,
   habits: [],
   workouts: [],
   workoutTemplates: [],
@@ -64,8 +64,35 @@ function isHabit(value: unknown): value is Habit {
         habit.completions.every((entry) => typeof entry === 'string'))) &&
     (habit.isArchived === undefined ||
       typeof habit.isArchived === 'boolean' ||
-      typeof habit.isArchieved === 'boolean')
+      typeof habit.isArchieved === 'boolean') &&
+    (habit.goalType === undefined ||
+      habit.goalType === 'check' ||
+      habit.goalType === 'quantity') &&
+    (habit.target === undefined ||
+      (typeof habit.target === 'number' && Number.isFinite(habit.target) && habit.target > 0)) &&
+    (habit.unit === undefined || typeof habit.unit === 'string') &&
+    (habit.progress === undefined ||
+      (typeof habit.progress === 'object' && habit.progress !== null))
   )
+}
+
+function normalizeProgress(value: unknown): Record<string, number> {
+  if (!value || typeof value !== 'object') return {}
+
+  const normalized: Record<string, number> = {}
+
+  Object.entries(value as Record<string, unknown>).forEach(([dateKey, amount]) => {
+    if (
+      /^\d{4}-\d{2}-\d{2}$/.test(dateKey) &&
+      typeof amount === 'number' &&
+      Number.isFinite(amount) &&
+      amount > 0
+    ) {
+      normalized[dateKey] = amount
+    }
+  })
+
+  return normalized
 }
 
 function isWorkoutEntry(value: unknown): value is WorkoutEntry {
@@ -113,18 +140,42 @@ function normalizeAppData(value: unknown): AppData {
   const parsed = value as Partial<AppData>
 
   return {
-    version: typeof parsed.version === 'number' ? parsed.version : 6,
+    version: typeof parsed.version === 'number' ? Math.max(parsed.version, 7) : 7,
     habits: Array.isArray(parsed.habits)
       ? parsed.habits.filter(isHabit).map((habit) => {
           const normalizedHabit = habit as Habit & { isArchieved?: boolean }
+          const goalType = normalizedHabit.goalType === 'quantity' ? 'quantity' : 'check'
+          const progress = normalizeProgress(normalizedHabit.progress)
+          const target =
+            typeof normalizedHabit.target === 'number' && normalizedHabit.target > 0
+              ? normalizedHabit.target
+              : undefined
+          const storedCompletions = Array.isArray(normalizedHabit.completions)
+            ? [...new Set(normalizedHabit.completions)].sort()
+            : []
+
+          // For quantity habits, completions are derived from progress vs target
+          // so there is a single source of truth for streaks and heatmaps.
+          const completions =
+            goalType === 'quantity' && target !== undefined
+              ? Object.entries(progress)
+                  .filter(([, amount]) => amount >= target)
+                  .map(([dateKey]) => dateKey)
+                  .sort()
+              : storedCompletions
 
           return {
             ...normalizedHabit,
             scheduledDays: normalizeScheduledDays(normalizedHabit.scheduledDays),
-            completions: Array.isArray(normalizedHabit.completions)
-              ? [...new Set(normalizedHabit.completions)].sort()
-              : [],
+            completions,
             isArchived: normalizedHabit.isArchived ?? normalizedHabit.isArchieved ?? false,
+            goalType,
+            target: goalType === 'quantity' ? target : undefined,
+            unit:
+              goalType === 'quantity' && typeof normalizedHabit.unit === 'string'
+                ? normalizedHabit.unit
+                : undefined,
+            progress: goalType === 'quantity' ? progress : undefined,
           }
         })
       : [],
@@ -300,6 +351,36 @@ export function setHabitCompletion(habitId: string, dateKey: string, completed: 
 
       return {
         ...habit,
+        completions: [...nextCompletions].sort(),
+      }
+    }),
+  }
+
+  saveAppData(nextData)
+  return nextData
+}
+
+export function setHabitProgress(habitId: string, dateKey: string, amount: number) {
+  const currentData = readAppData()
+  const nextData: AppData = {
+    ...currentData,
+    habits: currentData.habits.map((habit) => {
+      if (habit.id !== habitId) return habit
+
+      const safeAmount = Number.isFinite(amount) && amount > 0 ? amount : 0
+      const nextProgress = { ...(habit.progress ?? {}) }
+
+      if (safeAmount > 0) nextProgress[dateKey] = safeAmount
+      else delete nextProgress[dateKey]
+
+      const nextCompletions = new Set(habit.completions ?? [])
+      const target = habit.target ?? 0
+      if (target > 0 && safeAmount >= target) nextCompletions.add(dateKey)
+      else nextCompletions.delete(dateKey)
+
+      return {
+        ...habit,
+        progress: nextProgress,
         completions: [...nextCompletions].sort(),
       }
     }),

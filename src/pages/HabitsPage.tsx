@@ -6,20 +6,25 @@ import {
   readAppData,
   saveHabit,
   setHabitCompletion,
+  setHabitProgress,
   setHabitArchived,
   updateHabit,
 } from '../lib/appDataStorage'
 import {
+  getBestStreak,
   getCurrentStreak,
   getHabitScheduleLabel,
   getLastCompletedDate,
   getLocalDateKey,
+  getProgressOnDate,
   getRecentDays,
+  getTotalCompletions,
   hasCompletionOnDate,
   isHabitScheduledForDate,
+  isQuantityHabit,
   parseDateKey,
 } from '../lib/habitMetrics'
-import type { Frequency, Habit, Weekday } from '../types/habit'
+import type { Frequency, Habit, HabitGoalType, Weekday } from '../types/habit'
 
 type HabitFilter = 'all' | 'due-today' | 'open' | 'completed'
 
@@ -28,6 +33,9 @@ type HabitFormState = {
   description: string
   frequency: Frequency
   scheduledDays: Weekday[]
+  goalType: HabitGoalType
+  target: string
+  unit: string
 }
 
 const initialFormState: HabitFormState = {
@@ -35,6 +43,9 @@ const initialFormState: HabitFormState = {
   description: '',
   frequency: 'daily',
   scheduledDays: [],
+  goalType: 'check',
+  target: '',
+  unit: '',
 }
 
 const shortDateFormatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
@@ -54,6 +65,9 @@ export default function HabitsPage() {
   const [feedback, setFeedback] = useState('')
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null)
   const [deletingHabit, setDeletingHabit] = useState<Habit | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<{ habit: Habit; timeoutId: number } | null>(
+    null,
+  )
   const [activeFilter, setActiveFilter] = useState<HabitFilter>('all')
   const today = useMemo(() => new Date(), [])
   const todayKey = getLocalDateKey(today)
@@ -99,6 +113,9 @@ export default function HabitsPage() {
       description: habit.description,
       frequency: habit.frequency,
       scheduledDays: habit.scheduledDays ?? [],
+      goalType: habit.goalType === 'quantity' ? 'quantity' : 'check',
+      target: habit.target !== undefined ? String(habit.target) : '',
+      unit: habit.unit ?? '',
     })
     setFeedback(`Editing "${habit.name}". Update the fields and save your changes.`)
   }
@@ -147,8 +164,24 @@ export default function HabitsPage() {
       resetForm()
     }
 
+    if (pendingDelete) {
+      window.clearTimeout(pendingDelete.timeoutId)
+    }
+
+    const timeoutId = window.setTimeout(() => setPendingDelete(null), 6000)
+    setPendingDelete({ habit: deletingHabit, timeoutId })
     setFeedback(`"${deletingHabit.name}" was permanently deleted from localStorage.`)
     setDeletingHabit(null)
+  }
+
+  function undoPendingDelete() {
+    if (!pendingDelete) return
+
+    window.clearTimeout(pendingDelete.timeoutId)
+    const nextData = saveHabit(pendingDelete.habit)
+    setHabits(nextData.habits)
+    setPendingDelete(null)
+    setFeedback(`"${pendingDelete.habit.name}" was restored.`)
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -167,20 +200,32 @@ export default function HabitsPage() {
       return
     }
 
+    const parsedTarget = Number(form.target)
+    if (form.goalType === 'quantity' && (!Number.isFinite(parsedTarget) || parsedTarget <= 0)) {
+      setFeedback('Enter a daily target greater than zero for a measurable habit.')
+      return
+    }
+
+    const existingHabit = habits.find((habit) => habit.id === editingHabitId)
     const habitToSave: Habit = {
       id: editingHabitId ?? crypto.randomUUID(),
       name: trimmedName,
       description: trimmedDescription,
       frequency: form.frequency,
       scheduledDays: form.frequency === 'custom' ? form.scheduledDays : [],
-      createdAt:
-        habits.find((habit) => habit.id === editingHabitId)?.createdAt ?? new Date().toISOString(),
-      isArchived: habits.find((habit) => habit.id === editingHabitId)?.isArchived ?? false,
-      completions: habits.find((habit) => habit.id === editingHabitId)?.completions ?? [],
+      createdAt: existingHabit?.createdAt ?? new Date().toISOString(),
+      isArchived: existingHabit?.isArchived ?? false,
+      completions: existingHabit?.completions ?? [],
+      goalType: form.goalType,
+      target: form.goalType === 'quantity' ? parsedTarget : undefined,
+      unit: form.goalType === 'quantity' ? form.unit.trim() || undefined : undefined,
+      progress: form.goalType === 'quantity' ? (existingHabit?.progress ?? {}) : undefined,
     }
 
-    const nextData = editingHabitId ? updateHabit(habitToSave) : saveHabit(habitToSave)
-    setHabits(nextData.habits)
+    if (editingHabitId) updateHabit(habitToSave)
+    else saveHabit(habitToSave)
+    // Re-read so quantity habits get completions re-derived against the (possibly new) target.
+    setHabits(readAppData().habits)
     resetForm()
     setFeedback(
       editingHabitId
@@ -198,6 +243,21 @@ export default function HabitsPage() {
         ? `Removed today's completion for "${habit.name}".`
         : `Marked "${habit.name}" as complete for today.`,
     )
+  }
+
+  function handleProgressChange(habit: Habit, amount: number) {
+    const target = habit.target ?? 0
+    const safeAmount = Math.max(0, amount)
+    const nextData = setHabitProgress(habit.id, todayKey, safeAmount)
+    setHabits(nextData.habits)
+
+    if (target > 0 && safeAmount >= target) {
+      setFeedback(`"${habit.name}" hit today's target of ${target}${habit.unit ? ` ${habit.unit}` : ''}. Nice!`)
+    } else {
+      setFeedback(
+        `Logged ${safeAmount}${habit.unit ? ` ${habit.unit}` : ''} for "${habit.name}" today.`,
+      )
+    }
   }
 
   return (
@@ -271,6 +331,66 @@ export default function HabitsPage() {
               <option value="custom">Custom weekdays</option>
             </select>
           </div>
+
+          <div>
+            <label
+              htmlFor="habit-goal-type"
+              className="mb-1.5 block text-sm font-medium text-foreground"
+            >
+              Goal type
+            </label>
+            <select
+              id="habit-goal-type"
+              value={form.goalType}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, goalType: event.target.value as HabitGoalType }))
+              }
+              className="ui-input"
+            >
+              <option value="check">Simple check (done / not done)</option>
+              <option value="quantity">Measurable (amount per day)</option>
+            </select>
+          </div>
+
+          {form.goalType === 'quantity' && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="habit-target"
+                  className="mb-1.5 block text-sm font-medium text-foreground"
+                >
+                  Daily target
+                </label>
+                <input
+                  id="habit-target"
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={form.target}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, target: event.target.value }))
+                  }
+                  placeholder="8"
+                  className="ui-input"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="habit-unit"
+                  className="mb-1.5 block text-sm font-medium text-foreground"
+                >
+                  Unit (optional)
+                </label>
+                <input
+                  id="habit-unit"
+                  value={form.unit}
+                  onChange={(event) => setForm((prev) => ({ ...prev, unit: event.target.value }))}
+                  placeholder="glasses, minutes, pages..."
+                  className="ui-input"
+                />
+              </div>
+            </div>
+          )}
 
           {form.frequency === 'custom' && (
             <div>
@@ -412,6 +532,22 @@ export default function HabitsPage() {
                     </div>
                     <div className="rounded-lg bg-muted/50 px-3 py-2">
                       <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Best streak
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-foreground">
+                        {getBestStreak(habit, today)} day{getBestStreak(habit, today) === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 px-3 py-2">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Total done
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-foreground">
+                        {getTotalCompletions(habit)} day{getTotalCompletions(habit) === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 px-3 py-2">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                         Last completed
                       </p>
                       <p className="mt-1 text-sm font-semibold text-foreground">
@@ -460,21 +596,78 @@ export default function HabitsPage() {
                     </div>
                   </div>
 
+                  {isQuantityHabit(habit) && (
+                    <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                          Today's progress
+                        </p>
+                        <p className="text-sm font-semibold text-foreground">
+                          {getProgressOnDate(habit, todayKey)} / {habit.target}
+                          {habit.unit ? ` ${habit.unit}` : ''}
+                        </p>
+                      </div>
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-emerald-500 transition-all"
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              Math.round(
+                                (getProgressOnDate(habit, todayKey) / (habit.target ?? 1)) * 100,
+                              ),
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <p className="muted-copy mt-4 text-xs">
                     Created: {new Date(habit.createdAt).toLocaleString()}
                   </p>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleCompletionToggle(habit)}
-                      className={
-                        hasCompletionOnDate(habit, todayKey)
-                          ? 'ui-button'
-                          : 'ui-button bg-emerald-600 text-white hover:bg-emerald-700'
-                      }
-                    >
-                      {hasCompletionOnDate(habit, todayKey) ? 'Undo today' : 'Mark today complete'}
-                    </button>
+                    {isQuantityHabit(habit) ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleProgressChange(habit, getProgressOnDate(habit, todayKey) - 1)
+                          }
+                          disabled={getProgressOnDate(habit, todayKey) <= 0}
+                          className="ui-button disabled:cursor-not-allowed disabled:opacity-50"
+                          aria-label={`Decrease today's progress for ${habit.name}`}
+                        >
+                          −
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleProgressChange(habit, getProgressOnDate(habit, todayKey) + 1)
+                          }
+                          className={
+                            hasCompletionOnDate(habit, todayKey)
+                              ? 'ui-button'
+                              : 'ui-button bg-emerald-600 text-white hover:bg-emerald-700'
+                          }
+                          aria-label={`Increase today's progress for ${habit.name}`}
+                        >
+                          +1{habit.unit ? ` ${habit.unit.split(/\s+/)[0]}` : ''}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleCompletionToggle(habit)}
+                        className={
+                          hasCompletionOnDate(habit, todayKey)
+                            ? 'ui-button'
+                            : 'ui-button bg-emerald-600 text-white hover:bg-emerald-700'
+                        }
+                      >
+                        {hasCompletionOnDate(habit, todayKey) ? 'Undo today' : 'Mark today complete'}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => startEdit(habit)}
@@ -565,13 +758,26 @@ export default function HabitsPage() {
         )}
       </div>
 
+      {pendingDelete && (
+        <div className="fixed bottom-6 left-1/2 z-[80] -translate-x-1/2">
+          <div className="surface-card flex items-center gap-3 px-4 py-3 shadow-xl">
+            <p className="text-sm text-foreground">
+              Deleted "{pendingDelete.habit.name}".
+            </p>
+            <button type="button" onClick={undoPendingDelete} className="ui-button">
+              Undo
+            </button>
+          </div>
+        </div>
+      )}
+
       {deletingHabit && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/40 p-4">
           <div className="surface-card w-full max-w-md p-5 shadow-xl">
             <h3 className="text-base font-semibold text-foreground">Delete Permanently</h3>
             <p className="muted-copy mt-2 text-sm">
-              This will permanently remove "{deletingHabit.name}" from local storage and cannot be
-              undone.
+              This will permanently remove "{deletingHabit.name}" from local storage. You will have
+              a few seconds to undo after confirming.
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button

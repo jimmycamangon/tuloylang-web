@@ -52,6 +52,14 @@ export function hasCompletionOnDate(habit: Habit, dateKey: string) {
   return (habit.completions ?? []).includes(dateKey)
 }
 
+export function isQuantityHabit(habit: Habit) {
+  return habit.goalType === 'quantity' && typeof habit.target === 'number' && habit.target > 0
+}
+
+export function getProgressOnDate(habit: Habit, dateKey: string) {
+  return habit.progress?.[dateKey] ?? 0
+}
+
 export function getCurrentStreak(habit: Habit, today: Date) {
   let streak = 0
   const cursor = new Date(today)
@@ -71,6 +79,38 @@ export function getCurrentStreak(habit: Habit, today: Date) {
   }
 
   return streak
+}
+
+export function getBestStreak(habit: Habit, today: Date) {
+  const start = parseDateKey(habit.createdAt.slice(0, 10))
+  const end = new Date(today)
+  end.setHours(0, 0, 0, 0)
+
+  let best = 0
+  let run = 0
+  const cursor = new Date(start)
+  cursor.setHours(0, 0, 0, 0)
+
+  while (cursor <= end) {
+    if (isHabitScheduledForDate(habit, cursor)) {
+      if (hasCompletionOnDate(habit, getLocalDateKey(cursor))) {
+        run += 1
+        if (run > best) best = run
+      } else if (cursor < end) {
+        // A missed scheduled day in the past breaks the run. Today being
+        // still open does not, since it can still be completed.
+        run = 0
+      }
+    }
+
+    cursor.setDate(cursor.getDate() + 1)
+  }
+
+  return best
+}
+
+export function getTotalCompletions(habit: Habit) {
+  return (habit.completions ?? []).length
 }
 
 export function getLastCompletedDate(habit: Habit) {
