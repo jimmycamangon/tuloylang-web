@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { BarChart3, Dumbbell, LayoutDashboard, Repeat, Scale, Settings } from 'lucide-react'
+import { BarChart3, Dumbbell, HelpCircle, LayoutDashboard, Repeat, Scale, Settings } from 'lucide-react'
 
 export type RouteMeta = {
   path: string
@@ -52,6 +52,12 @@ export const routeMeta: Record<string, RouteMeta> = {
     description: 'Weight tracking',
     breadcrumbs: ['body-metrics'],
   },
+  help: {
+    path: '/help',
+    title: 'Help',
+    description: 'Guide & FAQ',
+    breadcrumbs: ['help'],
+  },
 }
 
 export const navItems: NavItem[] = [
@@ -84,6 +90,12 @@ export const navItems: NavItem[] = [
     icon: BarChart3,
     title: 'Analytics',
     detail: 'Insights',
+  },
+  {
+    id: 'help',
+    icon: HelpCircle,
+    title: 'Help',
+    detail: 'Guide & FAQ',
   },
   {
     id: 'settings',
