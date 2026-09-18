@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { readAppData, saveWorkout } from '../lib/appDataStorage'
+import { readAppData, saveWorkout, setHabitCompletion, setHabitProgress } from '../lib/appDataStorage'
 import {
   getCurrentStreak,
   getHabitScheduleLabel,
@@ -147,6 +147,19 @@ export default function DashboardPage() {
     const nextData = saveWorkout(workoutToSave)
     setWorkouts(nextData.workouts)
     setTodayLogFeedback(`"${todayTemplate.title}" logged instantly!`)
+  }
+
+  function handleToggleHabitToday(habit: Habit) {
+    const alreadyCompleted = hasCompletionOnDate(habit, todayKey)
+
+    if (habit.goalType === 'quantity') {
+      const target = habit.target ?? 0
+      const nextData = setHabitProgress(habit.id, todayKey, alreadyCompleted ? 0 : Math.max(target, 1))
+      setHabits(nextData.habits)
+    } else {
+      const nextData = setHabitCompletion(habit.id, todayKey, !alreadyCompleted)
+      setHabits(nextData.habits)
+    }
   }
   const weeklyHabitCompletions = allHabits.reduce(
     (sum, habit) =>
@@ -595,13 +608,24 @@ export default function DashboardPage() {
                       </span>
                     </div>
 
-                    <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                    <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
                       <span className="rounded-full bg-blue-50 px-3 py-1 font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-200">
                         {getHabitScheduleLabel(habit)}
                       </span>
                       <span className="rounded-full bg-muted px-3 py-1 font-medium text-foreground">
                         {currentStreak} day{currentStreak === 1 ? '' : 's'} streak
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleHabitToday(habit)}
+                        className={`ml-auto rounded-full px-3 py-1 text-xs font-medium ${
+                          completedToday
+                            ? 'border border-border text-muted-foreground hover:bg-muted'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        {completedToday ? 'Undo' : 'Mark done'}
+                      </button>
                     </div>
                   </article>
                 )

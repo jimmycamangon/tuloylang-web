@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { deleteBodyMetric, readAppData, saveBodyMetric, updateBodyMetric } from '../lib/appDataStorage'
 import type { BodyMetric } from '../types/bodyMetric'
 
@@ -63,6 +64,17 @@ export default function BodyMetricsPage() {
     return sum / recentWeights.length
   }, [metrics])
 
+  const chartData = useMemo(
+    () =>
+      [...metrics]
+        .sort((left, right) => left.date.localeCompare(right.date))
+        .map((metric) => ({
+          label: formatMetricDate(metric.date),
+          weightKg: metric.weightKg,
+        })),
+    [metrics],
+  )
+
   function resetForm() {
     setForm({ ...initialFormState, date: getTodayDateKey() })
     setEditingMetricId(null)
@@ -121,8 +133,61 @@ export default function BodyMetricsPage() {
   }
 
   return (
-    <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-      <div className="surface-card p-6">
+    <div className="space-y-6">
+      <article className="surface-card min-w-0 p-4 sm:p-6">
+        <h2 className="text-base font-semibold text-foreground">Weight Trend</h2>
+        <p className="muted-copy mt-2 text-sm">
+          Your logged weight over time. Look at the overall direction, not any single day.
+        </p>
+
+        {chartData.length >= 2 ? (
+          <div className="mt-6 h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                  tickLine={false}
+                  axisLine={{ stroke: 'var(--border)' }}
+                />
+                <YAxis
+                  domain={['dataMin - 1', 'dataMax + 1']}
+                  unit="kg"
+                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 12,
+                    color: 'var(--foreground)',
+                    fontSize: 12,
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="weightKg"
+                  name="Weight (kg)"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  fill="#3b82f6"
+                  fillOpacity={0.15}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="mt-6 rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
+            Log at least two weight entries to see your trend chart here.
+          </div>
+        )}
+      </article>
+
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+        <div className="surface-card p-6">
         <div className="mb-5">
           <h2 className="text-base font-semibold text-foreground">
             {editingMetricId ? 'Edit Weight Entry' : 'Log Weight'}
@@ -265,6 +330,7 @@ export default function BodyMetricsPage() {
           </div>
         )}
       </div>
+      </section>
 
       {deletingMetric && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/40 p-4">
@@ -284,6 +350,6 @@ export default function BodyMetricsPage() {
           </div>
         </div>
       )}
-    </section>
+    </div>
   )
 }
