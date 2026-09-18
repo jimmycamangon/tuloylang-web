@@ -1,7 +1,8 @@
 import type { AppData } from '../types/appData'
+import type { BodyMetric } from '../types/bodyMetric'
 import type { WeeklyGoals } from '../types/goal'
 import type { Habit } from '../types/habit'
-import type { WorkoutEntry, WorkoutTemplate } from '../types/workout'
+import type { ExerciseEntry, WorkoutEntry, WorkoutTemplate } from '../types/workout'
 import { normalizeScheduledDays } from './habitMetrics'
 
 export const APP_DATA_STORAGE_KEY = 'tuloylang_app_data'
@@ -12,10 +13,11 @@ const defaultGoals: WeeklyGoals = {
 }
 
 const defaultAppData: AppData = {
-  version: 7,
+  version: 8,
   habits: [],
   workouts: [],
   workoutTemplates: [],
+  bodyMetrics: [],
   goals: defaultGoals,
 }
 
@@ -95,6 +97,25 @@ function normalizeProgress(value: unknown): Record<string, number> {
   return normalized
 }
 
+function isExerciseEntry(value: unknown): value is ExerciseEntry {
+  if (!value || typeof value !== 'object') return false
+
+  const exercise = value as Partial<ExerciseEntry>
+
+  return (
+    typeof exercise.name === 'string' &&
+    typeof exercise.sets === 'number' &&
+    Number.isFinite(exercise.sets) &&
+    exercise.sets > 0 &&
+    (exercise.reps === undefined ||
+      (typeof exercise.reps === 'number' && Number.isFinite(exercise.reps) && exercise.reps > 0)) &&
+    (exercise.holdSeconds === undefined ||
+      (typeof exercise.holdSeconds === 'number' &&
+        Number.isFinite(exercise.holdSeconds) &&
+        exercise.holdSeconds > 0))
+  )
+}
+
 function isWorkoutEntry(value: unknown): value is WorkoutEntry {
   if (!value || typeof value !== 'object') return false
 
@@ -112,7 +133,9 @@ function isWorkoutEntry(value: unknown): value is WorkoutEntry {
       workout.intensity === 'high') &&
     typeof workout.performedAt === 'string' &&
     typeof workout.notes === 'string' &&
-    typeof workout.createdAt === 'string'
+    typeof workout.createdAt === 'string' &&
+    (workout.exercises === undefined ||
+      (Array.isArray(workout.exercises) && workout.exercises.every(isExerciseEntry)))
   )
 }
 
@@ -132,7 +155,28 @@ function isWorkoutTemplate(value: unknown): value is WorkoutTemplate {
       template.intensity === 'moderate' ||
       template.intensity === 'high') &&
     typeof template.notes === 'string' &&
-    typeof template.createdAt === 'string'
+    typeof template.createdAt === 'string' &&
+    (template.exercises === undefined ||
+      (Array.isArray(template.exercises) && template.exercises.every(isExerciseEntry))) &&
+    (template.assignedDay === undefined ||
+      (Number.isInteger(template.assignedDay) &&
+        template.assignedDay >= 0 &&
+        template.assignedDay <= 6))
+  )
+}
+
+function isBodyMetric(value: unknown): value is BodyMetric {
+  if (!value || typeof value !== 'object') return false
+
+  const metric = value as Partial<BodyMetric>
+
+  return (
+    typeof metric.id === 'string' &&
+    typeof metric.date === 'string' &&
+    typeof metric.weightKg === 'number' &&
+    Number.isFinite(metric.weightKg) &&
+    metric.weightKg > 0 &&
+    typeof metric.createdAt === 'string'
   )
 }
 
@@ -140,7 +184,7 @@ function normalizeAppData(value: unknown): AppData {
   const parsed = value as Partial<AppData>
 
   return {
-    version: typeof parsed.version === 'number' ? Math.max(parsed.version, 7) : 7,
+    version: typeof parsed.version === 'number' ? Math.max(parsed.version, 8) : 8,
     habits: Array.isArray(parsed.habits)
       ? parsed.habits.filter(isHabit).map((habit) => {
           const normalizedHabit = habit as Habit & { isArchieved?: boolean }
@@ -197,6 +241,11 @@ function normalizeAppData(value: unknown): AppData {
           }))
           .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
       : [],
+    bodyMetrics: Array.isArray(parsed.bodyMetrics)
+      ? parsed.bodyMetrics
+          .filter(isBodyMetric)
+          .sort((left, right) => right.date.localeCompare(left.date))
+      : [],
     goals: normalizeGoals(parsed.goals),
   }
 }
@@ -238,6 +287,13 @@ function mergeAppData(currentData: AppData, importedData: AppData): AppData {
     else mergedTemplates.push(template)
   })
 
+  const mergedBodyMetrics = [...currentData.bodyMetrics]
+  importedData.bodyMetrics.forEach((metric) => {
+    const index = mergedBodyMetrics.findIndex((item) => item.id === metric.id)
+    if (index >= 0) mergedBodyMetrics[index] = metric
+    else mergedBodyMetrics.push(metric)
+  })
+
   return {
     ...currentData,
     habits: mergedHabits.sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
@@ -245,6 +301,7 @@ function mergeAppData(currentData: AppData, importedData: AppData): AppData {
     workoutTemplates: mergedTemplates.sort((left, right) =>
       right.createdAt.localeCompare(left.createdAt),
     ),
+    bodyMetrics: mergedBodyMetrics.sort((left, right) => right.date.localeCompare(left.date)),
     goals: importedData.goals,
     version: Math.max(currentData.version, importedData.version),
   }
@@ -445,6 +502,43 @@ export function deleteWorkoutTemplate(templateId: string) {
   const nextData: AppData = {
     ...currentData,
     workoutTemplates: currentData.workoutTemplates.filter((template) => template.id !== templateId),
+  }
+
+  saveAppData(nextData)
+  return nextData
+}
+
+export function saveBodyMetric(metric: BodyMetric) {
+  const currentData = readAppData()
+  const nextData: AppData = {
+    ...currentData,
+    bodyMetrics: [...currentData.bodyMetrics, metric].sort((left, right) =>
+      right.date.localeCompare(left.date),
+    ),
+  }
+
+  saveAppData(nextData)
+  return nextData
+}
+
+export function updateBodyMetric(updatedMetric: BodyMetric) {
+  const currentData = readAppData()
+  const nextData: AppData = {
+    ...currentData,
+    bodyMetrics: currentData.bodyMetrics
+      .map((metric) => (metric.id === updatedMetric.id ? updatedMetric : metric))
+      .sort((left, right) => right.date.localeCompare(left.date)),
+  }
+
+  saveAppData(nextData)
+  return nextData
+}
+
+export function deleteBodyMetric(metricId: string) {
+  const currentData = readAppData()
+  const nextData: AppData = {
+    ...currentData,
+    bodyMetrics: currentData.bodyMetrics.filter((metric) => metric.id !== metricId),
   }
 
   saveAppData(nextData)

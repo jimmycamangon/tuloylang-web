@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { BarChart3, Dumbbell, LayoutDashboard, Repeat, Settings } from 'lucide-react'
+import { BarChart3, Dumbbell, LayoutDashboard, Repeat, Scale, Settings } from 'lucide-react'
 
 export type RouteMeta = {
   path: string
@@ -46,6 +46,12 @@ export const routeMeta: Record<string, RouteMeta> = {
     description: 'Insights',
     breadcrumbs: ['analytics'],
   },
+  'body-metrics': {
+    path: '/body-metrics',
+    title: 'Body Metrics',
+    description: 'Weight tracking',
+    breadcrumbs: ['body-metrics'],
+  },
 }
 
 export const navItems: NavItem[] = [
@@ -66,6 +72,12 @@ export const navItems: NavItem[] = [
     icon: Dumbbell,
     title: 'Workouts',
     detail: 'Training sessions',
+  },
+  {
+    id: 'body-metrics',
+    icon: Scale,
+    title: 'Body Metrics',
+    detail: 'Weight tracking',
   },
   {
     id: 'analytics',

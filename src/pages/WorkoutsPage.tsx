@@ -9,8 +9,13 @@ import {
   saveWorkoutTemplate,
   updateWorkout,
 } from '../lib/appDataStorage'
-import type { WorkoutEntry, WorkoutIntensity, WorkoutTemplate } from '../types/workout'
+import type { ExerciseEntry, TemplateDay, WorkoutEntry, WorkoutIntensity, WorkoutTemplate } from '../types/workout'
 
+const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+
+function getTodayDay(): TemplateDay {
+  return new Date().getDay() as TemplateDay
+}
 type WorkoutFormState = {
   title: string
   category: string
@@ -18,6 +23,7 @@ type WorkoutFormState = {
   intensity: WorkoutIntensity
   performedAt: string
   notes: string
+  exercises: ExerciseEntry[]
 }
 
 const intensityStyles: Record<WorkoutIntensity, string> = {
@@ -39,10 +45,21 @@ const initialFormState: WorkoutFormState = {
   intensity: 'moderate',
   performedAt: getDefaultPerformedAt(),
   notes: '',
+  exercises: [],
 }
 
 function formatWorkoutDate(value: string) {
   return new Date(value).toLocaleString()
+}
+
+function formatExercise(exercise: ExerciseEntry) {
+  if (exercise.holdSeconds) {
+    return `${exercise.name} — ${exercise.sets}x${exercise.holdSeconds}s`
+  }
+  if (exercise.reps) {
+    return `${exercise.name} — ${exercise.sets}x${exercise.reps}`
+  }
+  return `${exercise.name} — ${exercise.sets} sets`
 }
 
 export default function WorkoutsPage() {
@@ -52,6 +69,7 @@ export default function WorkoutsPage() {
   const [feedback, setFeedback] = useState('')
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null)
   const [deletingWorkout, setDeletingWorkout] = useState<WorkoutEntry | null>(null)
+  const [templateDay, setTemplateDay] = useState<TemplateDay | 'none'>(getTodayDay())
 
   useEffect(() => {
     const appData = readAppData()
@@ -72,12 +90,52 @@ export default function WorkoutsPage() {
     return workouts.filter((workout) => new Date(workout.performedAt) >= startOfWeek).length
   }, [workouts])
 
+  const sortedTemplates = useMemo(() => {
+    const today = getTodayDay()
+    return [...templates].sort((left, right) => {
+      const leftIsToday = left.assignedDay === today ? 0 : 1
+      const rightIsToday = right.assignedDay === today ? 0 : 1
+      return leftIsToday - rightIsToday
+    })
+  }, [templates])
+
   function resetForm() {
     setForm({
       ...initialFormState,
       performedAt: getDefaultPerformedAt(),
     })
     setEditingWorkoutId(null)
+  }
+
+  function addExerciseRow() {
+    setForm((prev) => ({
+      ...prev,
+      exercises: [...prev.exercises, { name: '', sets: 1 }],
+    }))
+  }
+
+  function updateExerciseRow(index: number, field: keyof ExerciseEntry, value: string) {
+    setForm((prev) => ({
+      ...prev,
+      exercises: prev.exercises.map((exercise, exerciseIndex) => {
+        if (exerciseIndex !== index) return exercise
+
+        if (field === 'name') {
+          return { ...exercise, name: value }
+        }
+
+        // sets, reps, holdSeconds are numeric fields
+        const numericValue = Number(value)
+        return { ...exercise, [field]: Number.isFinite(numericValue) ? numericValue : undefined }
+      }),
+    }))
+  }
+
+  function removeExerciseRow(index: number) {
+    setForm((prev) => ({
+      ...prev,
+      exercises: prev.exercises.filter((_, exerciseIndex) => exerciseIndex !== index),
+    }))
   }
 
   function startEdit(workout: WorkoutEntry) {
@@ -89,6 +147,7 @@ export default function WorkoutsPage() {
       intensity: workout.intensity,
       performedAt: workout.performedAt.slice(0, 16),
       notes: workout.notes,
+      exercises: workout.exercises ?? [],
     })
     setFeedback(`Editing "${workout.title}". Update the session and save when ready.`)
   }
@@ -126,6 +185,7 @@ export default function WorkoutsPage() {
       performedAt: new Date(form.performedAt).toISOString(),
       notes: trimmedNotes,
       createdAt: existingWorkout?.createdAt ?? new Date().toISOString(),
+      exercises: form.exercises,
     }
 
     const nextData = editingWorkoutId ? updateWorkout(workoutToSave) : saveWorkout(workoutToSave)
@@ -162,8 +222,9 @@ export default function WorkoutsPage() {
       intensity: form.intensity,
       notes: trimmedNotes,
       createdAt: new Date().toISOString(),
+      exercises: form.exercises,
+      assignedDay: templateDay === 'none' ? undefined : templateDay,
     }
-
     const nextData = saveWorkoutTemplate(templateToSave)
     setTemplates(nextData.workoutTemplates)
     setFeedback(`Template "${templateToSave.title}" saved for future workout logs.`)
@@ -177,6 +238,7 @@ export default function WorkoutsPage() {
       durationMinutes: String(template.durationMinutes),
       intensity: template.intensity,
       notes: template.notes,
+      exercises: template.exercises ?? [],
     }))
     setEditingWorkoutId(null)
     setFeedback(`Template "${template.title}" applied to the workout form.`)
@@ -196,6 +258,7 @@ export default function WorkoutsPage() {
       performedAt,
       notes: template.notes,
       createdAt: now.toISOString(),
+      exercises: template.exercises,
     }
 
     const nextData = saveWorkout(workoutToSave)
@@ -265,9 +328,27 @@ export default function WorkoutsPage() {
                 Save your current form as a reusable routine, then apply it anytime before logging.
               </p>
             </div>
-            <button type="button" onClick={handleSaveTemplate} className="ui-button w-fit">
-              Save as template
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={templateDay}
+                onChange={(event) =>
+                  setTemplateDay(
+                    event.target.value === 'none' ? 'none' : (Number(event.target.value) as TemplateDay),
+                  )
+                }
+                className="ui-input w-auto"
+              >
+                <option value="none">No day (any day)</option>
+                {dayNames.map((name, index) => (
+                  <option key={name} value={index}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <button type="button" onClick={handleSaveTemplate} className="ui-button w-fit">
+                Save as template
+              </button>
+            </div>
           </div>
 
           {templates.length === 0 ? (
@@ -275,8 +356,8 @@ export default function WorkoutsPage() {
               No templates yet. Build one from the form and save it here.
             </div>
           ) : (
-            <div className="mt-4 grid max-h-[18rem] gap-3 overflow-y-auto pr-2">
-              {templates.slice(0, 4).map((template) => (
+            <div className="mt-4 grid max-h-[28rem] gap-3 overflow-y-auto pr-2">
+              {sortedTemplates.map((template) => (
                 <article key={template.id} className="rounded-lg border border-border bg-muted/30 p-4">
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>
@@ -287,12 +368,35 @@ export default function WorkoutsPage() {
                         >
                           {template.intensity}
                         </span>
+                        {template.assignedDay !== undefined && (
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                              template.assignedDay === getTodayDay()
+                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-200'
+                                : 'bg-muted text-muted-foreground'
+                            }`}
+                          >
+                            {template.assignedDay === getTodayDay() ? 'Today' : dayNames[template.assignedDay]}
+                          </span>
+                        )}
                       </div>
                       <p className="muted-copy mt-1 text-sm">{template.category}</p>
                       <p className="muted-copy mt-2 text-sm">
                         {template.durationMinutes} min
                         {template.notes ? ` - ${template.notes}` : ''}
                       </p>
+                      {template.exercises && template.exercises.length > 0 && (
+                        <ul className="mt-2 flex flex-wrap gap-1.5">
+                          {template.exercises.map((exercise, index) => (
+                            <li
+                              key={index}
+                              className="rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground"
+                            >
+                              {formatExercise(exercise)}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button
@@ -405,6 +509,63 @@ export default function WorkoutsPage() {
           </div>
 
           <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="block text-sm font-medium text-foreground">Exercises</label>
+              <button type="button" onClick={addExerciseRow} className="ui-button">
+                Add exercise
+              </button>
+            </div>
+
+            {form.exercises.length === 0 ? (
+              <p className="muted-copy text-sm">No exercises added yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {form.exercises.map((exercise, index) => (
+                  <div key={index} className="grid grid-cols-[1fr_4rem_4rem_5.5rem_auto] gap-2">
+                    <input
+                      value={exercise.name}
+                      onChange={(event) => updateExerciseRow(index, 'name', event.target.value)}
+                      placeholder="Push-ups"
+                      className="ui-input"
+                    />
+                    <input
+                      type="number"
+                      min="1"
+                      value={exercise.sets}
+                      onChange={(event) => updateExerciseRow(index, 'sets', event.target.value)}
+                      placeholder="Sets"
+                      className="ui-input"
+                    />
+                    <input
+                      type="number"
+                      min="1"
+                      value={exercise.reps ?? ''}
+                      onChange={(event) => updateExerciseRow(index, 'reps', event.target.value)}
+                      placeholder="Reps"
+                      className="ui-input"
+                    />
+                    <input
+                      type="number"
+                      min="1"
+                      value={exercise.holdSeconds ?? ''}
+                      onChange={(event) => updateExerciseRow(index, 'holdSeconds', event.target.value)}
+                      placeholder="Hold (s)"
+                      className="ui-input"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeExerciseRow(index)}
+                      className="ui-button-danger"
+                    >
+                      X
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
             <label htmlFor="workout-notes" className="mb-1.5 block text-sm font-medium text-foreground">
               Notes
             </label>
@@ -504,6 +665,18 @@ export default function WorkoutsPage() {
                 <p className="muted-copy mt-4 text-sm">
                   {workout.notes || 'No notes added for this session.'}
                 </p>
+                {workout.exercises && workout.exercises.length > 0 && (
+                  <ul className="mt-3 flex flex-wrap gap-1.5">
+                    {workout.exercises.map((exercise, index) => (
+                      <li
+                        key={index}
+                        className="rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground"
+                      >
+                        {formatExercise(exercise)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button type="button" onClick={() => startEdit(workout)} className="ui-button">

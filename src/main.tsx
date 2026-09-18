@@ -10,6 +10,7 @@ import DashboardPage from './pages/DashboardPage.tsx'
 import AnalyticsPage from './pages/AnalyticsPage.tsx'
 import SettingsPage from './pages/SettingsPage.tsx'
 import WorkoutsPage from './pages/WorkoutsPage.tsx'
+import BodyMetricsPage from './pages/BodyMetricsPage.tsx'
 import { applyThemePreference } from './lib/userPreferences.ts'
 
 import '@fontsource/inter/400.css'
@@ -37,6 +38,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/habits" element={<HabitsPage />} />
           <Route path="/workouts" element={<WorkoutsPage />} />
+          <Route path="/body-metrics" element={<BodyMetricsPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
