@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { readAppData } from '../lib/appDataStorage'
+import { readAppData, saveWorkout } from '../lib/appDataStorage'
 import {
   getCurrentStreak,
   getHabitScheduleLabel,
@@ -13,7 +13,7 @@ import {
 } from '../lib/habitMetrics'
 import type { WeeklyGoals } from '../types/goal'
 import type { Habit } from '../types/habit'
-import type { WorkoutEntry } from '../types/workout'
+import type { WorkoutEntry, WorkoutTemplate } from '../types/workout'
 
 const monthLabelFormatter = new Intl.DateTimeFormat(undefined, { month: 'short' })
 const longDateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -69,7 +69,9 @@ function getHeatmapIntensityClass(percentage: number, scheduled: number) {
 export default function DashboardPage() {
   const [habits, setHabits] = useState<Habit[]>([])
   const [workouts, setWorkouts] = useState<WorkoutEntry[]>([])
+  const [workoutTemplates, setWorkoutTemplates] = useState<WorkoutTemplate[]>([])
   const [goals, setGoals] = useState<WeeklyGoals>({ habitCompletions: 7, workoutSessions: 3 })
+  const [todayLogFeedback, setTodayLogFeedback] = useState('')
   const today = useMemo(() => new Date(), [])
   const todayKey = getLocalDateKey(today)
   const recentDays = useMemo(() => getRecentDays(today), [today])
@@ -79,6 +81,7 @@ export default function DashboardPage() {
       const appData = readAppData()
       setHabits(appData.habits)
       setWorkouts(appData.workouts)
+      setWorkoutTemplates(appData.workoutTemplates)
       setGoals(appData.goals)
     }
 
@@ -114,6 +117,37 @@ export default function DashboardPage() {
     0,
   )
   const recentWorkouts = workouts.slice(0, 4)
+  const todayTemplate = workoutTemplates.find((template) => template.assignedDay === today.getDay())
+  const hasLoggedTodayTemplate =
+    todayTemplate !== undefined &&
+    workouts.some(
+      (workout) =>
+        workout.title === todayTemplate.title && getLocalDateKey(new Date(workout.performedAt)) === todayKey,
+    )
+
+  function handleLogTodayTemplate() {
+    if (!todayTemplate || hasLoggedTodayTemplate) return
+
+    const now = new Date()
+    const offsetMs = now.getTimezoneOffset() * 60_000
+    const performedAt = new Date(now.getTime() - offsetMs).toISOString()
+
+    const workoutToSave: WorkoutEntry = {
+      id: crypto.randomUUID(),
+      title: todayTemplate.title,
+      category: todayTemplate.category,
+      durationMinutes: todayTemplate.durationMinutes,
+      intensity: todayTemplate.intensity,
+      performedAt,
+      notes: todayTemplate.notes,
+      createdAt: now.toISOString(),
+      exercises: todayTemplate.exercises,
+    }
+
+    const nextData = saveWorkout(workoutToSave)
+    setWorkouts(nextData.workouts)
+    setTodayLogFeedback(`"${todayTemplate.title}" logged instantly!`)
+  }
   const weeklyHabitCompletions = allHabits.reduce(
     (sum, habit) =>
       sum +
@@ -384,6 +418,68 @@ export default function DashboardPage() {
           )
         })}
       </div>
+
+      <article className="surface-card p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-foreground">Today's Workout</h3>
+            <p className="muted-copy mt-2 text-sm">
+              {todayTemplate
+                ? 'Your template for today, ready to log in one tap.'
+                : "No template is assigned to today's day yet."}
+            </p>
+          </div>
+          <Link to="/workouts" className="ui-button w-fit">
+            Open Workouts Page
+          </Link>
+        </div>
+
+        {todayTemplate ? (
+          <div className="mt-6 rounded-xl border border-border bg-card p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">{todayTemplate.title}</h4>
+                <p className="muted-copy mt-1 text-sm">{todayTemplate.category}</p>
+              </div>
+              <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-200">
+                {todayTemplate.durationMinutes} min
+              </span>
+            </div>
+
+            {todayTemplate.exercises && todayTemplate.exercises.length > 0 && (
+              <ul className="mt-3 flex flex-wrap gap-1.5">
+                {todayTemplate.exercises.map((exercise, index) => (
+                  <li
+                    key={`${exercise.name}-${index}`}
+                    className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-foreground"
+                  >
+                    {exercise.name} — {exercise.sets}x
+                    {exercise.holdSeconds ? `${exercise.holdSeconds}s` : exercise.reps ?? 'sets'}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleLogTodayTemplate}
+                disabled={hasLoggedTodayTemplate}
+                className="ui-button bg-blue-600 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {hasLoggedTodayTemplate ? 'Already logged today' : 'Log now'}
+              </button>
+              {todayLogFeedback ? (
+                <p className="text-sm text-emerald-600 dark:text-emerald-300">{todayLogFeedback}</p>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-6 rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
+            Assign a day to one of your templates on the Workouts page so it shows up here automatically.
+          </div>
+        )}
+      </article>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.9fr)]">
         <article className="surface-card p-6">
