@@ -12,6 +12,8 @@ import {
   YAxis,
 } from 'recharts'
 import { readAppData } from '../lib/appDataStorage'
+import { computeExerciseProgress } from '../lib/exerciseProgress'
+import type { ExerciseTrend } from '../lib/exerciseProgress'
 import {
   getCurrentStreak,
   getLocalDateKey,
@@ -28,6 +30,20 @@ const fullDateFormatter = new Intl.DateTimeFormat(undefined, {
   day: 'numeric',
   year: 'numeric',
 })
+
+const exerciseTrendStyles: Record<ExerciseTrend, string> = {
+  'ready-to-level-up': 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-200',
+  plateaued: 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-200',
+  improving: 'bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-200',
+  new: 'bg-muted text-muted-foreground',
+}
+
+const exerciseTrendLabels: Record<ExerciseTrend, string> = {
+  'ready-to-level-up': 'Ready to level up',
+  plateaued: 'Plateaued',
+  improving: 'Improving',
+  new: 'New',
+}
 const workoutTimeFormatter = new Intl.DateTimeFormat(undefined, {
   month: 'short',
   day: 'numeric',
@@ -115,6 +131,8 @@ export default function AnalyticsPage() {
   }, [])
 
   const activeHabits = habits.filter((habit) => !habit.isArchived)
+  // Used for the heatmap so archiving a habit never erases its past completions.
+  const allHabits = habits
 
   const heatmapWeeks = useMemo(() => {
     const weeksToShow = 24
@@ -127,7 +145,7 @@ export default function AnalyticsPage() {
         date.setDate(gridStart.getDate() + weekIndex * 7 + dayIndex)
 
         const dayKey = getLocalDateKey(date)
-        const scheduledHabits = activeHabits.filter((habit) => isHabitScheduledForDate(habit, date))
+        const scheduledHabits = allHabits.filter((habit) => isHabitScheduledForDate(habit, date))
         const completedHabits = scheduledHabits.filter((habit) => hasCompletionOnDate(habit, dayKey))
         const openHabits = scheduledHabits.filter((habit) => !hasCompletionOnDate(habit, dayKey))
         const dayWorkouts = workouts.filter((workout) => workout.performedAt.slice(0, 10) === dayKey)
@@ -151,7 +169,7 @@ export default function AnalyticsPage() {
         }
       }),
     )
-  }, [activeHabits, today, workouts])
+  }, [allHabits, today, workouts])
 
   const flatCells = useMemo(() => heatmapWeeks.flat(), [heatmapWeeks])
   const [selectedDateKey, setSelectedDateKey] = useState(todayKey)
@@ -203,6 +221,8 @@ export default function AnalyticsPage() {
       .sort((left, right) => right.sessions - left.sessions || right.minutes - left.minutes)
       .slice(0, 5)
   }, [workouts])
+
+  const exerciseProgress = useMemo(() => computeExerciseProgress(workouts), [workouts])
 
   const consistencyTimeline = useMemo(() => {
     return flatCells
@@ -429,7 +449,7 @@ export default function AnalyticsPage() {
         )}
       </article>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.9fr)]">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,0.9fr)]">
         <article className="surface-card min-w-0 overflow-hidden p-4 sm:p-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -546,7 +566,7 @@ export default function AnalyticsPage() {
                     No scheduled habits were completed on this day.
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
                     {selectedCell.completedHabits.map((habit) => (
                       <div key={habit.id} className="rounded-lg border border-border bg-card p-3">
                         <p className="text-sm font-semibold text-foreground">{habit.name}</p>
@@ -566,7 +586,7 @@ export default function AnalyticsPage() {
                     No open scheduled habits remained for this day.
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
                     {selectedCell.openHabits.map((habit) => (
                       <div key={habit.id} className="rounded-lg border border-border bg-card p-3">
                         <p className="text-sm font-semibold text-foreground">{habit.name}</p>
@@ -586,7 +606,7 @@ export default function AnalyticsPage() {
                     No workouts were logged on this day.
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
                     {selectedCell.workouts.map((workout) => (
                       <div key={workout.id} className="rounded-lg border border-border bg-card p-3">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
@@ -683,6 +703,42 @@ export default function AnalyticsPage() {
                     </span>
                   </div>
                   <p className="muted-copy mt-2 text-sm">{item.minutes} total minutes logged</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </article>
+
+        <article className="surface-card min-w-0 p-4 sm:p-6">
+          <h3 className="text-base font-semibold text-foreground">Exercise Progress</h3>
+          <p className="muted-copy mt-2 text-sm">
+            Based on your last two entries per exercise. When reps or hold time stop climbing and
+            you have hit the target, it is time to level up.
+          </p>
+
+          {exerciseProgress.length === 0 ? (
+            <div className="mt-6 rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
+              No exercises logged yet. Add exercises to your workout entries to see progress here.
+            </div>
+          ) : (
+            <div className="mt-6 max-h-[32rem] space-y-3 overflow-y-auto pr-2">
+              {exerciseProgress.map((item) => (
+                <div key={item.name} className="rounded-xl border border-border bg-card p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-foreground">{item.name}</p>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${exerciseTrendStyles[item.trend]}`}
+                    >
+                      {exerciseTrendLabels[item.trend]}
+                    </span>
+                  </div>
+                  <p className="muted-copy mt-2 text-sm">
+                    {item.latestSets} sets
+                    {item.latestReps ? ` x ${item.latestReps} reps` : ''}
+                    {item.latestHoldSeconds ? ` x ${item.latestHoldSeconds}s hold` : ''}
+                    {' — '}
+                    {fullDateFormatter.format(new Date(item.latestDate))}
+                  </p>
                 </div>
               ))}
             </div>

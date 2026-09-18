@@ -94,6 +94,9 @@ export default function DashboardPage() {
 
   const activeHabits = habits.filter((habit) => !habit.isArchived)
   const archivedHabits = habits.filter((habit) => habit.isArchived)
+  // Used for historical views (heatmap, weekly activity) so archiving a habit
+  // never erases its past completions from the record.
+  const allHabits = habits
   const completedTodayCount = activeHabits.filter((habit) => hasCompletionOnDate(habit, todayKey)).length
   const scheduledTodayCount = activeHabits.filter((habit) => isHabitScheduledForDate(habit, today)).length
   const completionRate =
@@ -111,7 +114,7 @@ export default function DashboardPage() {
     0,
   )
   const recentWorkouts = workouts.slice(0, 4)
-  const weeklyHabitCompletions = activeHabits.reduce(
+  const weeklyHabitCompletions = allHabits.reduce(
     (sum, habit) =>
       sum +
       (habit.completions ?? []).filter((entry) => {
@@ -162,9 +165,8 @@ export default function DashboardPage() {
   }, [dueTodayHabits, todayKey])
 
   const weeklyActivity = recentDays.map((day) => {
-    const scheduled = activeHabits.filter((habit) => isHabitScheduledForDate(habit, day.date)).length
-    const completed = activeHabits.filter((habit) => hasCompletionOnDate(habit, day.key)).length
-
+    const scheduled = allHabits.filter((habit) => isHabitScheduledForDate(habit, day.date)).length
+    const completed = allHabits.filter((habit) => hasCompletionOnDate(habit, day.key)).length
     return {
       ...day,
       scheduled,
@@ -295,8 +297,8 @@ export default function DashboardPage() {
         const date = new Date(gridStart)
         date.setDate(gridStart.getDate() + weekIndex * 7 + dayIndex)
 
-        const scheduled = activeHabits.filter((habit) => isHabitScheduledForDate(habit, date)).length
-        const completed = activeHabits.filter((habit) =>
+        const scheduled = allHabits.filter((habit) => isHabitScheduledForDate(habit, date)).length
+        const completed = allHabits.filter((habit) =>
           hasCompletionOnDate(habit, getLocalDateKey(date)),
         ).length
         const percentage = scheduled > 0 ? Math.round((completed / scheduled) * 100) : 0
@@ -315,7 +317,7 @@ export default function DashboardPage() {
     )
 
     return cells
-  }, [activeHabits, today])
+  }, [allHabits, today])
 
   const heatmapSummary = useMemo(() => {
     const flatCells = heatmapWeeks.flat()
