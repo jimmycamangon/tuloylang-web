@@ -145,7 +145,10 @@ export default function AnalyticsPage() {
         date.setDate(gridStart.getDate() + weekIndex * 7 + dayIndex)
 
         const dayKey = getLocalDateKey(date)
-        const scheduledHabits = allHabits.filter((habit) => isHabitScheduledForDate(habit, date))
+        const scheduledHabits = allHabits.filter(
+          (habit) =>
+            isHabitScheduledForDate(habit, date) && (!habit.isArchived || hasCompletionOnDate(habit, dayKey)),
+        )
         const completedHabits = scheduledHabits.filter((habit) => hasCompletionOnDate(habit, dayKey))
         const openHabits = scheduledHabits.filter((habit) => !hasCompletionOnDate(habit, dayKey))
         const dayWorkouts = workouts.filter((workout) => workout.performedAt.slice(0, 10) === dayKey)

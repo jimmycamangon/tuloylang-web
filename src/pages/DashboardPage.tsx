@@ -212,7 +212,11 @@ export default function DashboardPage() {
   }, [dueTodayHabits, todayKey])
 
   const weeklyActivity = recentDays.map((day) => {
-    const scheduled = allHabits.filter((habit) => isHabitScheduledForDate(habit, day.date)).length
+    const scheduled = allHabits.filter(
+      (habit) =>
+        isHabitScheduledForDate(habit, day.date) &&
+        (!habit.isArchived || hasCompletionOnDate(habit, day.key)),
+    ).length
     const completed = allHabits.filter((habit) => hasCompletionOnDate(habit, day.key)).length
     return {
       ...day,
@@ -344,10 +348,12 @@ export default function DashboardPage() {
         const date = new Date(gridStart)
         date.setDate(gridStart.getDate() + weekIndex * 7 + dayIndex)
 
-        const scheduled = allHabits.filter((habit) => isHabitScheduledForDate(habit, date)).length
-        const completed = allHabits.filter((habit) =>
-          hasCompletionOnDate(habit, getLocalDateKey(date)),
+        const dateKey = getLocalDateKey(date)
+        const scheduled = allHabits.filter(
+          (habit) =>
+            isHabitScheduledForDate(habit, date) && (!habit.isArchived || hasCompletionOnDate(habit, dateKey)),
         ).length
+        const completed = allHabits.filter((habit) => hasCompletionOnDate(habit, dateKey)).length
         const percentage = scheduled > 0 ? Math.round((completed / scheduled) * 100) : 0
 
         return {
