@@ -1,10 +1,24 @@
-/* TuloyLang service worker: offline app shell + runtime asset cache. */
-const CACHE_NAME = 'tuloylang-v1'
-const APP_SHELL = ['/', '/manifest.webmanifest', '/icon.svg', '/favicon.ico']
+/* TuloyLang service worker: precaches the whole built app so it runs fully offline. */
+
+// Both values are replaced at build time by the `pwa-precache` plugin in vite.config.ts.
+const BUILD_ID = '__BUILD_ID__'
+const PRECACHE_URLS = self.__PRECACHE_URLS__ || ['/', '/manifest.webmanifest', '/icon.svg']
+
+const CACHE_PREFIX = 'tuloylang-'
+const CACHE_NAME = `${CACHE_PREFIX}${BUILD_ID}`
+const SHELL_URL = '/index.html'
+// Servers may send `Vary: Origin`. `crossorigin` script/style tags send an Origin header the
+// precache request did not, so without ignoreVary every lookup would miss while offline.
+const MATCH_OPTIONS = { ignoreVary: true }
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)))
-  self.skipWaiting()
+  event.waitUntil(
+    caches
+      .open(CACHE_NAME)
+      // `reload` bypasses the HTTP cache so a new build never precaches stale files.
+      .then((cache) => cache.addAll(PRECACHE_URLS.map((url) => new Request(url, { cache: 'reload' }))))
+      .then(() => self.skipWaiting()),
+  )
 })
 
 self.addEventListener('activate', (event) => {
@@ -12,7 +26,11 @@ self.addEventListener('activate', (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))),
+        Promise.all(
+          keys
+            .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
+            .map((key) => caches.delete(key)),
+        ),
       )
       .then(() => self.clients.claim()),
   )
@@ -25,23 +43,54 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
 
-  // SPA navigations: network first, fall back to cached shell when offline.
+  // SPA navigations (/, /dashboard, /habits, ...): network first so updates show up,
+  // falling back to the cached app shell when offline.
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone()
-          caches.open(CACHE_NAME).then((cache) => cache.put('/', copy))
+          if (response.ok) {
+            const copy = response.clone()
+            caches.open(CACHE_NAME).then((cache) => cache.put(SHELL_URL, copy))
+          }
           return response
         })
-        .catch(() => caches.match('/')),
+        .catch(async () => {
+          const cache = await caches.open(CACHE_NAME)
+          return (
+            (await cache.match(SHELL_URL, MATCH_OPTIONS)) ??
+            (await cache.match('/', MATCH_OPTIONS)) ??
+            new Response('TuloyLang is offline and has not been cached yet.', {
+              status: 503,
+              headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+            })
+          )
+        }),
     )
     return
   }
 
-  // Static assets: stale-while-revalidate.
+  // Hashed build assets never change: serve from cache, fetch only if missing.
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      caches.match(request, MATCH_OPTIONS).then(
+        (cached) =>
+          cached ??
+          fetch(request).then((response) => {
+            if (response.ok) {
+              const copy = response.clone()
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, copy))
+            }
+            return response
+          }),
+      ),
+    )
+    return
+  }
+
+  // Other same-origin files (icons, manifest): stale-while-revalidate.
   event.respondWith(
-    caches.match(request).then((cached) => {
+    caches.match(request, MATCH_OPTIONS).then((cached) => {
       const network = fetch(request)
         .then((response) => {
           if (response.ok) {
@@ -50,7 +99,7 @@ self.addEventListener('fetch', (event) => {
           }
           return response
         })
-        .catch(() => cached)
+        .catch(() => cached ?? Response.error())
 
       return cached ?? network
     }),
