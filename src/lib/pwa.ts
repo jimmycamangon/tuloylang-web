@@ -14,11 +14,25 @@ function notify() {
   listeners.forEach((listener) => listener())
 }
 
-function isStandalone() {
+export function isStandalone() {
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: minimal-ui)').matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true
   )
+}
+
+/**
+ * The installed app should open on the dashboard, not the marketing landing page.
+ * The manifest's start_url handles new installs; this also covers installs made while
+ * start_url was "/" (and iOS, which keeps the URL from when it was added).
+ * Runs once per launch, before the router reads the URL, so in-app "Back to Home"
+ * navigation still reaches the landing page.
+ */
+export function redirectInstalledLaunchToDashboard() {
+  if (window.location.pathname === '/' && isStandalone()) {
+    window.history.replaceState(null, '', '/dashboard')
+  }
 }
 
 /**

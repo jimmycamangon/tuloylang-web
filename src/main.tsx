@@ -13,7 +13,7 @@ import WorkoutsPage from './pages/WorkoutsPage.tsx'
 import BodyMetricsPage from './pages/BodyMetricsPage.tsx'
 import HelpPage from './pages/HelpPage.tsx'
 import { applyThemePreference } from './lib/userPreferences.ts'
-import { initPwa } from './lib/pwa.ts'
+import { initPwa, redirectInstalledLaunchToDashboard } from './lib/pwa.ts'
 
 import '@fontsource/inter/400.css'
 import '@fontsource/inter/500.css'
@@ -21,6 +21,7 @@ import '@fontsource/inter/600.css'
 import '@fontsource/inter/700.css'
 
 applyThemePreference()
+redirectInstalledLaunchToDashboard()
 initPwa()
 
 createRoot(document.getElementById('root')!).render(
