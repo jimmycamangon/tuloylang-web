@@ -4,7 +4,7 @@
   "short_name": "TuloyLang",
   "description": "Local-first habit and workout tracker. Tuloy lang — just keep going.",
   "lang": "en",
-  "start_url": "/",
+  "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
