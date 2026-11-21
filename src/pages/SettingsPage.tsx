@@ -19,6 +19,7 @@ import {
   saveUserProfile,
   USER_PROFILE_STORAGE_KEY,
 } from '../lib/userPreferences'
+import { useInstallPrompt } from '../lib/pwa'
 import type { WeeklyGoals } from '../types/goal'
 import type { UserProfile } from '../types/userProfile'
 
@@ -46,6 +47,7 @@ export default function SettingsPage() {
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [dataVersion, setDataVersion] = useState(0)
   const [goalsForm, setGoalsForm] = useState<WeeklyGoals>(() => readAppData().goals)
+  const install = useInstallPrompt()
 
   useEffect(() => {
     applyThemePreference(theme)
@@ -308,6 +310,49 @@ export default function SettingsPage() {
                   </button>
                 </div>
               </div>
+            </div>
+          </article>
+
+          <article className="surface-card p-6">
+            <h3 className="text-base font-semibold text-foreground">Install App</h3>
+            <p className="muted-copy mt-2 text-sm">
+              Install TuloyLang on your phone or computer to open it like a regular app, even
+              without an internet connection.
+            </p>
+
+            <div className="mt-6 rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    {install.installed ? 'Installed' : 'Add to your device'}
+                  </p>
+                  <p className="muted-copy mt-1 text-sm">
+                    {install.installed
+                      ? 'You are using the installed app.'
+                      : install.canInstall
+                        ? 'Your browser is ready to install TuloyLang.'
+                        : install.isIos
+                          ? 'In Safari, tap Share, then "Add to Home Screen".'
+                          : 'Use your browser menu and choose "Install app" or "Add to Home screen".'}
+                  </p>
+                </div>
+                {install.canInstall && !install.installed && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void install.promptInstall()
+                    }}
+                    className="ui-button shrink-0"
+                  >
+                    Install
+                  </button>
+                )}
+              </div>
+              <p className="muted-copy mt-3 text-xs">
+                {install.offlineReady
+                  ? 'Offline ready: the app is saved on this device and works without internet.'
+                  : 'Offline mode turns on after the app finishes loading once while online.'}
+              </p>
             </div>
           </article>
 

@@ -110,11 +110,6 @@ const faqs = [
       "Yes — completely free. There are no premium tiers, paywalls, or upsells. The project is open source on GitHub.",
   },
   {
-    question: "What does \"Tuloy lang\" mean?",
-    answer:
-      "It's a Filipino phrase that loosely translates to \"just keep going.\" It captures the spirit of consistency over intensity — the idea that small, repeated actions matter more than perfect ones.",
-  },
-  {
     question: "Can I export my data?",
     answer:
       "Yes. Inside Settings, you can export your habits and workouts so you have a portable backup, or move to another device whenever you want.",
@@ -517,7 +512,7 @@ export default function LandPage() {
                 <ArrowRight className="h-4 w-4" />
               </Button>
               <a
-                href="https://github.com/jimmycamangon"
+                href="https://github.com/jimmycamangon/tuloylang-web"
                 target="_blank"
                 rel="noreferrer"
                 className="w-full sm:w-auto"
