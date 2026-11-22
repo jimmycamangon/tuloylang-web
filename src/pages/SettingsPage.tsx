@@ -3,10 +3,18 @@ import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
   APP_DATA_STORAGE_KEY,
-  downloadAppDataFile,
   readAppData,
   updateWeeklyGoals,
 } from '../lib/appDataStorage'
+import {
+  BACKUP_META_CHANGED_EVENT,
+  describeLastBackup,
+  getStorageProtection,
+  readBackupMeta,
+  requestStorageProtection,
+  saveBackup,
+} from '../lib/backup'
+import type { StorageProtection } from '../lib/backup'
 import {
   applyThemePreference,
   getDefaultUserProfile,
@@ -48,6 +56,44 @@ export default function SettingsPage() {
   const [dataVersion, setDataVersion] = useState(0)
   const [goalsForm, setGoalsForm] = useState<WeeklyGoals>(() => readAppData().goals)
   const install = useInstallPrompt()
+  const [backupMeta, setBackupMeta] = useState(readBackupMeta)
+  const [exporting, setExporting] = useState(false)
+  const [storageProtection, setStorageProtection] = useState<StorageProtection | 'checking'>(
+    'checking',
+  )
+  const lastBackupLabel = describeLastBackup(backupMeta)
+
+  useEffect(() => {
+    const refreshBackupMeta = () => setBackupMeta(readBackupMeta())
+    window.addEventListener(BACKUP_META_CHANGED_EVENT, refreshBackupMeta)
+    window.addEventListener('storage', refreshBackupMeta)
+    void getStorageProtection().then(setStorageProtection)
+    return () => {
+      window.removeEventListener(BACKUP_META_CHANGED_EVENT, refreshBackupMeta)
+      window.removeEventListener('storage', refreshBackupMeta)
+    }
+  }, [])
+
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const result = await saveBackup()
+      if (result === 'shared') setFeedback('Backup shared. Keep that file somewhere safe.')
+      if (result === 'downloaded') setFeedback('Backup file downloaded. Keep it somewhere safe.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  async function handleProtectStorage() {
+    const result = await requestStorageProtection()
+    setStorageProtection(result)
+    setFeedback(
+      result === 'protected'
+        ? 'Storage protected: the browser will keep your data instead of clearing it.'
+        : 'The browser declined for now. Installing the app usually makes it allow this.',
+    )
+  }
 
   useEffect(() => {
     applyThemePreference(theme)
@@ -391,20 +437,55 @@ export default function SettingsPage() {
             </div>
 
             <div className="mt-6 space-y-3">
-              <button
-                type="button"
-                onClick={() => {
-                  downloadAppDataFile()
-                  setFeedback(`Backup exported from localStorage key "${APP_DATA_STORAGE_KEY}".`)
-                }}
-                className="ui-button"
-              >
-                Export app data
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={exporting}
+                  onClick={() => {
+                    void handleExport()
+                  }}
+                  className="ui-button"
+                >
+                  {exporting ? 'Saving…' : 'Export app data'}
+                </button>
+                <p className="text-sm text-foreground">
+                  Last backup:{' '}
+                  <span className="font-medium">{lastBackupLabel ?? 'never'}</span>
+                </p>
+              </div>
               <p className="muted-copy text-sm">
-                Export creates a JSON backup of the same shared app data used throughout the
-                project, so you have a file you can later restore from the Start page.
+                Export creates a JSON backup you can restore later from the Start page. On a
+                phone it opens the share menu, so you can save it to Files, Google Drive, or send
+                it to yourself.
               </p>
+            </div>
+
+            <div className="mt-6 rounded-lg border border-border bg-muted/40 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Storage protection</p>
+                  <p className="muted-copy mt-1 text-sm">
+                    {storageProtection === 'protected'
+                      ? 'Protected: this browser will not clear your data to free up space.'
+                      : storageProtection === 'not-protected'
+                        ? 'Not protected: the browser may clear your data if the device runs low on space or the app goes unused for a long time.'
+                        : storageProtection === 'unsupported'
+                          ? 'This browser does not support storage protection. Regular backups keep you safe.'
+                          : 'Checking…'}
+                  </p>
+                </div>
+                {storageProtection === 'not-protected' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleProtectStorage()
+                    }}
+                    className="ui-button shrink-0"
+                  >
+                    Protect my data
+                  </button>
+                )}
+              </div>
             </div>
           </article>
 

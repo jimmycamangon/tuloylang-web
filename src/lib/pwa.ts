@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { requestStorageProtection } from './backup'
 
 /** Chromium-only event fired when the app meets install criteria. */
 type BeforeInstallPromptEvent = Event & {
@@ -50,6 +51,11 @@ export function initPwa() {
     deferredPrompt = null
     notify()
   })
+
+  // The installed app is where people keep long-term progress: ask the browser not to
+  // evict it. Limited to installed launches so desktop Firefox never shows a prompt on a
+  // casual visit; Settings offers the same request on demand.
+  if (isStandalone()) void requestStorageProtection()
 
   if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return
 

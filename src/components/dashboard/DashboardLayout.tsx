@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Footer from '../Footer'
+import PageLoader from '../PageLoader'
 import {
   applyThemePreference,
   getProfileInitials,
@@ -247,7 +248,9 @@ export default function DashboardLayout() {
               })}
             </div>
 
-            <Outlet />
+            <Suspense fallback={<PageLoader />}>
+              <Outlet />
+            </Suspense>
           </main>
 
           <Footer />
