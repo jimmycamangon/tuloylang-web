@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import BackupReminder from '../components/BackupReminder'
 import { readAppData, saveWorkout, setHabitCompletion, setHabitProgress } from '../lib/appDataStorage'
 import {
   getCurrentStreak,
@@ -389,6 +390,7 @@ export default function DashboardPage() {
 
   return (
     <section className="space-y-6">
+      <BackupReminder />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {summaryCards.map((card) => (
