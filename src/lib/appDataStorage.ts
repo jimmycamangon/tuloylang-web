@@ -4,6 +4,7 @@ import type { WeeklyGoals } from '../types/goal'
 import type { Habit } from '../types/habit'
 import type { ExerciseEntry, WorkoutEntry, WorkoutTemplate } from '../types/workout'
 import { normalizeScheduledDays } from './habitMetrics'
+import { normalizePerformedAt } from './workoutTime'
 
 export const APP_DATA_STORAGE_KEY = 'tuloylang_app_data'
 
@@ -228,6 +229,7 @@ function normalizeAppData(value: unknown): AppData {
           .filter(isWorkoutEntry)
           .map((workout) => ({
             ...workout,
+            performedAt: normalizePerformedAt(workout.performedAt, workout.createdAt),
             durationMinutes: Math.round(workout.durationMinutes),
           }))
           .sort((left, right) => right.performedAt.localeCompare(left.performedAt))

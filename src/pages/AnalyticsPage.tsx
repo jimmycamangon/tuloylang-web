@@ -11,15 +11,22 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import HabitBreakdown from '../components/analytics/HabitBreakdown'
+import PeriodStatCards from '../components/analytics/PeriodStatCards'
+import PrintableReport from '../components/analytics/PrintableReport'
+import SmartInsights from '../components/analytics/SmartInsights'
+import { analyze, getPeriodRange, isHabitDueOn, PERIOD_OPTIONS } from '../lib/analyticsInsights'
+import type { PeriodDays } from '../lib/analyticsInsights'
 import { readAppData } from '../lib/appDataStorage'
 import { computeExerciseProgress } from '../lib/exerciseProgress'
 import type { ExerciseTrend } from '../lib/exerciseProgress'
 import {
-  getCurrentStreak,
   getLocalDateKey,
   hasCompletionOnDate,
   isHabitScheduledForDate,
 } from '../lib/habitMetrics'
+import { exportCsvFiles } from '../lib/reportExport'
+import { readUserProfile } from '../lib/userPreferences'
 import type { Habit } from '../types/habit'
 import type { WorkoutEntry } from '../types/workout'
 
@@ -50,7 +57,6 @@ const workoutTimeFormatter = new Intl.DateTimeFormat(undefined, {
   hour: 'numeric',
   minute: '2-digit',
 })
-const weekdayNameFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'long' })
 
 type HeatmapCell = {
   key: string
@@ -72,11 +78,15 @@ function startOfWeek(date: Date) {
   return result
 }
 
-function endOfWeek(date: Date) {
-  const result = startOfWeek(date)
-  result.setDate(result.getDate() + 6)
-  result.setHours(23, 59, 59, 999)
-  return result
+const PERIOD_STORAGE_KEY = 'tuloylang_analytics_period'
+
+function readSavedPeriod(): PeriodDays {
+  try {
+    const saved = Number(localStorage.getItem(PERIOD_STORAGE_KEY))
+    return (PERIOD_OPTIONS as readonly number[]).includes(saved) ? (saved as PeriodDays) : 30
+  } catch {
+    return 30
+  }
 }
 
 function getHeatmapTone(score: number) {
@@ -113,6 +123,43 @@ export default function AnalyticsPage() {
   const today = useMemo(() => new Date(), [])
   const todayKey = getLocalDateKey(today)
 
+  const [period, setPeriod] = useState<PeriodDays>(readSavedPeriod)
+  const [exporting, setExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState('')
+  const range = useMemo(() => getPeriodRange(today, period), [today, period])
+  const analysis = useMemo(
+    () => analyze({ habits, workouts, range, today }),
+    [habits, workouts, range, today],
+  )
+  const profileName = useMemo(() => {
+    const name = readUserProfile().fullName.trim()
+    return name && name !== 'New User' ? name : undefined
+  }, [])
+
+  function choosePeriod(next: PeriodDays) {
+    setPeriod(next)
+    try {
+      localStorage.setItem(PERIOD_STORAGE_KEY, String(next))
+    } catch {
+      // Remembering the period is only a convenience.
+    }
+  }
+
+  async function handleExportCsv() {
+    setExporting(true)
+    setExportMessage('')
+    try {
+      const result = await exportCsvFiles(habits, workouts)
+      setExportMessage(
+        result === 'cancelled' ? '' : result === 'shared' ? 'CSV files shared.' : 'Downloaded 2 CSV files.',
+      )
+    } catch {
+      setExportMessage('Export failed. Please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   useEffect(() => {
     const loadData = () => {
       const appData = readAppData()
@@ -130,7 +177,6 @@ export default function AnalyticsPage() {
     }
   }, [])
 
-  const activeHabits = habits.filter((habit) => !habit.isArchived)
   // Used for the heatmap so archiving a habit never erases its past completions.
   const allHabits = habits
 
@@ -145,13 +191,16 @@ export default function AnalyticsPage() {
         date.setDate(gridStart.getDate() + weekIndex * 7 + dayIndex)
 
         const dayKey = getLocalDateKey(date)
+        // Past days use the same rules as the insights (future days and days before a habit
+        // existed are not "missed"); today also lists what is still open.
         const scheduledHabits = allHabits.filter(
           (habit) =>
-            isHabitScheduledForDate(habit, date) && (!habit.isArchived || hasCompletionOnDate(habit, dayKey)),
+            isHabitDueOn(habit, date, todayKey) ||
+            (dayKey === todayKey && !habit.isArchived && isHabitScheduledForDate(habit, date)),
         )
         const completedHabits = scheduledHabits.filter((habit) => hasCompletionOnDate(habit, dayKey))
         const openHabits = scheduledHabits.filter((habit) => !hasCompletionOnDate(habit, dayKey))
-        const dayWorkouts = workouts.filter((workout) => workout.performedAt.slice(0, 10) === dayKey)
+        const dayWorkouts = workouts.filter((workout) => getLocalDateKey(new Date(workout.performedAt)) === dayKey)
         const completionRate =
           scheduledHabits.length > 0
             ? Math.round((completedHabits.length / scheduledHabits.length) * 100)
@@ -172,7 +221,7 @@ export default function AnalyticsPage() {
         }
       }),
     )
-  }, [allHabits, today, workouts])
+  }, [allHabits, today, todayKey, workouts])
 
   const flatCells = useMemo(() => heatmapWeeks.flat(), [heatmapWeeks])
   const [selectedDateKey, setSelectedDateKey] = useState(todayKey)
@@ -186,26 +235,6 @@ export default function AnalyticsPage() {
   }, [flatCells, todayKey])
 
   const selectedCell = flatCells.find((cell) => cell.key === selectedDateKey) ?? flatCells[flatCells.length - 1]
-
-  const summary = useMemo(() => {
-    const daysWithActivity = flatCells.filter(
-      (cell) => cell.completedHabits.length > 0 || cell.workouts.length > 0,
-    ).length
-    const perfectHabitDays = flatCells.filter(
-      (cell) => cell.scheduledHabits.length > 0 && cell.completedHabits.length === cell.scheduledHabits.length,
-    ).length
-    const totalWorkoutMinutes = workouts.reduce((sum, workout) => sum + workout.durationMinutes, 0)
-    const strongestHabit = activeHabits
-      .map((habit) => ({ habit, streak: getCurrentStreak(habit, today) }))
-      .sort((left, right) => right.streak - left.streak)[0]
-
-    return {
-      daysWithActivity,
-      perfectHabitDays,
-      totalWorkoutMinutes,
-      strongestHabit,
-    }
-  }, [activeHabits, flatCells, today, workouts])
 
   const workoutCategoryBreakdown = useMemo(() => {
     const categoryMap = new Map<string, { sessions: number; minutes: number }>()
@@ -234,83 +263,6 @@ export default function AnalyticsPage() {
       .reverse()
   }, [flatCells])
 
-  const insightCards = useMemo(() => {
-    const currentWeekStart = startOfWeek(today)
-    const currentWeekEnd = endOfWeek(today)
-    const previousWeekStart = new Date(currentWeekStart)
-    previousWeekStart.setDate(previousWeekStart.getDate() - 7)
-    const previousWeekEnd = endOfWeek(previousWeekStart)
-
-    const currentWeekCells = flatCells.filter(
-      (cell) => cell.date >= currentWeekStart && cell.date <= currentWeekEnd,
-    )
-    const previousWeekCells = flatCells.filter(
-      (cell) => cell.date >= previousWeekStart && cell.date <= previousWeekEnd,
-    )
-
-    const currentWeekScore = currentWeekCells.reduce((sum, cell) => sum + cell.score, 0)
-    const previousWeekScore = previousWeekCells.reduce((sum, cell) => sum + cell.score, 0)
-    const scoreDelta = currentWeekScore - previousWeekScore
-
-    const strongestDay = [...flatCells]
-      .filter((cell) => cell.score > 0)
-      .sort((left, right) => {
-        if (right.score !== left.score) return right.score - left.score
-        return right.date.getTime() - left.date.getTime()
-      })[0]
-
-    const weekdayMissMap = new Map<number, { scheduled: number; missed: number }>()
-
-    flatCells.forEach((cell) => {
-      const weekday = cell.date.getDay()
-      const current = weekdayMissMap.get(weekday) ?? { scheduled: 0, missed: 0 }
-      weekdayMissMap.set(weekday, {
-        scheduled: current.scheduled + cell.scheduledHabits.length,
-        missed: current.missed + cell.openHabits.length,
-      })
-    })
-
-    const mostMissedWeekday = [...weekdayMissMap.entries()]
-      .filter(([, value]) => value.scheduled > 0 && value.missed > 0)
-      .map(([weekday, value]) => ({
-        weekday,
-        missedRate: Math.round((value.missed / value.scheduled) * 100),
-        missed: value.missed,
-      }))
-      .sort((left, right) => right.missedRate - left.missedRate || right.missed - left.missed)[0]
-
-    return [
-      {
-        label: 'This Week Vs Last Week',
-        title:
-          scoreDelta === 0
-            ? 'You are matching last week so far.'
-            : scoreDelta > 0
-              ? `${scoreDelta} more activity points than last week.`
-              : `${Math.abs(scoreDelta)} fewer activity points than last week.`,
-        detail: `This week: ${currentWeekScore} - Last week: ${previousWeekScore}`,
-      },
-      {
-        label: 'Strongest Activity Day',
-        title: strongestDay
-          ? `${weekdayNameFormatter.format(strongestDay.date)} stands out most.`
-          : 'No standout day yet.',
-        detail: strongestDay
-          ? `${strongestDay.completedHabits.length} habits completed and ${strongestDay.workouts.length} workouts logged on ${strongestDay.date.toLocaleDateString()}.`
-          : 'Keep logging habits and workouts to surface your strongest day.',
-      },
-      {
-        label: 'Most Missed Day',
-        title: mostMissedWeekday
-          ? `${weekdayNameFormatter.format(new Date(2024, 0, mostMissedWeekday.weekday + 7))} needs more support.`
-          : 'No repeated miss pattern yet.',
-        detail: mostMissedWeekday
-          ? `${mostMissedWeekday.missedRate}% of scheduled habits were missed on this weekday.`
-          : 'Your recent schedule does not show a consistent missed day.',
-      },
-    ]
-  }, [flatCells, today])
-
   const weeklyTrend = useMemo(() => {
     return heatmapWeeks.slice(-12).map((week) => {
       const scheduled = week.reduce((sum, cell) => sum + cell.scheduledHabits.length, 0)
@@ -335,48 +287,56 @@ export default function AnalyticsPage() {
   return (
     <section className="space-y-6">
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <article className="surface-card p-5">
-          <p className="text-sm text-muted-foreground">Active Days</p>
-          <p className="mt-3 text-3xl font-semibold text-foreground">{summary.daysWithActivity}</p>
-          <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-300">
-            Days with at least one completed habit or workout
-          </p>
-        </article>
-        <article className="surface-card p-5">
-          <p className="text-sm text-muted-foreground">Perfect Habit Days</p>
-          <p className="mt-3 text-3xl font-semibold text-foreground">{summary.perfectHabitDays}</p>
-          <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-300">
-            Every scheduled habit was completed
-          </p>
-        </article>
-        <article className="surface-card p-5">
-          <p className="text-sm text-muted-foreground">Workout Minutes</p>
-          <p className="mt-3 text-3xl font-semibold text-foreground">{summary.totalWorkoutMinutes}</p>
-          <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-300">
-            Total training minutes logged so far
-          </p>
-        </article>
-        <article className="surface-card p-5">
-          <p className="text-sm text-muted-foreground">Strongest Habit</p>
-          <p className="mt-3 text-2xl font-semibold text-foreground">
-            {summary.strongestHabit?.habit.name ?? 'No data yet'}
-          </p>
-          <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-300">
-            {summary.strongestHabit ? `${summary.strongestHabit.streak} day streak` : 'Log habits to surface streaks'}
-          </p>
-        </article>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          role="group"
+          aria-label="Report period"
+          className="inline-flex w-fit rounded-lg border border-border bg-card p-1"
+        >
+          {PERIOD_OPTIONS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={period === option}
+              onClick={() => choosePeriod(option)}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                period === option
+                  ? 'bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-200'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+              }`}
+            >
+              {option} days
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {exportMessage && (
+            <span role="status" className="text-sm text-muted-foreground">
+              {exportMessage}
+            </span>
+          )}
+          <button type="button" onClick={handleExportCsv} disabled={exporting} className="ui-button py-2">
+            {exporting ? 'Exporting…' : 'Export CSV'}
+          </button>
+          <button type="button" onClick={() => window.print()} className="ui-button py-2">
+            Print / Save PDF
+          </button>
+        </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        {insightCards.map((insight) => (
-          <article key={insight.label} className="surface-card p-5">
-            <p className="text-sm text-muted-foreground">{insight.label}</p>
-            <p className="mt-3 text-xl font-semibold text-foreground">{insight.title}</p>
-            <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-300">{insight.detail}</p>
-          </article>
-        ))}
-      </div>
+      <PeriodStatCards stats={analysis.stats} previous={analysis.previousStats} />
+
+      <SmartInsights analysis={analysis} />
+
+      <HabitBreakdown stats={analysis.habitStats} days={period} />
+
+      <PrintableReport
+        analysis={analysis}
+        range={range}
+        workouts={workouts}
+        profileName={profileName}
+      />
 
       <article className="surface-card min-w-0 p-4 sm:p-6">
         <h3 className="text-base font-semibold text-foreground">Weekly Trend</h3>
