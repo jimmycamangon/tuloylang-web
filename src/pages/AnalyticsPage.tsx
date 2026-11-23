@@ -13,6 +13,7 @@ import {
 } from 'recharts'
 import HabitBreakdown from '../components/analytics/HabitBreakdown'
 import PeriodStatCards from '../components/analytics/PeriodStatCards'
+import PrintableReport from '../components/analytics/PrintableReport'
 import SmartInsights from '../components/analytics/SmartInsights'
 import { analyze, getPeriodRange, isHabitDueOn, PERIOD_OPTIONS } from '../lib/analyticsInsights'
 import type { PeriodDays } from '../lib/analyticsInsights'
@@ -24,6 +25,8 @@ import {
   hasCompletionOnDate,
   isHabitScheduledForDate,
 } from '../lib/habitMetrics'
+import { exportCsvFiles } from '../lib/reportExport'
+import { readUserProfile } from '../lib/userPreferences'
 import type { Habit } from '../types/habit'
 import type { WorkoutEntry } from '../types/workout'
 
@@ -121,11 +124,17 @@ export default function AnalyticsPage() {
   const todayKey = getLocalDateKey(today)
 
   const [period, setPeriod] = useState<PeriodDays>(readSavedPeriod)
+  const [exporting, setExporting] = useState(false)
+  const [exportMessage, setExportMessage] = useState('')
   const range = useMemo(() => getPeriodRange(today, period), [today, period])
   const analysis = useMemo(
     () => analyze({ habits, workouts, range, today }),
     [habits, workouts, range, today],
   )
+  const profileName = useMemo(() => {
+    const name = readUserProfile().fullName.trim()
+    return name && name !== 'New User' ? name : undefined
+  }, [])
 
   function choosePeriod(next: PeriodDays) {
     setPeriod(next)
@@ -136,6 +145,20 @@ export default function AnalyticsPage() {
     }
   }
 
+  async function handleExportCsv() {
+    setExporting(true)
+    setExportMessage('')
+    try {
+      const result = await exportCsvFiles(habits, workouts)
+      setExportMessage(
+        result === 'cancelled' ? '' : result === 'shared' ? 'CSV files shared.' : 'Downloaded 2 CSV files.',
+      )
+    } catch {
+      setExportMessage('Export failed. Please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   useEffect(() => {
     const loadData = () => {
@@ -286,6 +309,20 @@ export default function AnalyticsPage() {
             </button>
           ))}
         </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {exportMessage && (
+            <span role="status" className="text-sm text-muted-foreground">
+              {exportMessage}
+            </span>
+          )}
+          <button type="button" onClick={handleExportCsv} disabled={exporting} className="ui-button py-2">
+            {exporting ? 'Exporting…' : 'Export CSV'}
+          </button>
+          <button type="button" onClick={() => window.print()} className="ui-button py-2">
+            Print / Save PDF
+          </button>
+        </div>
       </div>
 
       <PeriodStatCards stats={analysis.stats} previous={analysis.previousStats} />
@@ -293,6 +330,13 @@ export default function AnalyticsPage() {
       <SmartInsights analysis={analysis} />
 
       <HabitBreakdown stats={analysis.habitStats} days={period} />
+
+      <PrintableReport
+        analysis={analysis}
+        range={range}
+        workouts={workouts}
+        profileName={profileName}
+      />
 
       <article className="surface-card min-w-0 p-4 sm:p-6">
         <h3 className="text-base font-semibold text-foreground">Weekly Trend</h3>

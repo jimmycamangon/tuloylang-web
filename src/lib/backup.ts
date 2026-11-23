@@ -1,4 +1,6 @@
 import { exportAppData, readAppData } from './appDataStorage'
+import { localDateStamp, saveFiles } from './fileSave'
+import type { SaveResult } from './fileSave'
 import type { AppData } from '../types/appData'
 
 /**
@@ -126,35 +128,7 @@ export function describeLastBackup(meta: BackupMeta, now = new Date()) {
   return `${days} days ago`
 }
 
-function backupFileName(now = new Date()) {
-  const pad = (value: number) => String(value).padStart(2, '0')
-  const dateStamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
-  return `tuloylang-backup-${dateStamp}.json`
-}
-
-function downloadFile(file: File) {
-  const url = URL.createObjectURL(file)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = file.name
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  // Revoke later: revoking synchronously can cancel the download in some browsers.
-  window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
-}
-
-/** Touch devices get the share sheet (Files, Drive, Messenger…); desktops get a download. */
-function shouldUseShareSheet(file: File) {
-  return (
-    typeof navigator.share === 'function' &&
-    typeof navigator.canShare === 'function' &&
-    navigator.canShare({ files: [file] }) &&
-    window.matchMedia('(pointer: coarse)').matches
-  )
-}
-
-export type BackupResult = 'shared' | 'downloaded' | 'cancelled'
+export type BackupResult = SaveResult
 
 /**
  * Saves a backup of all app data. On phones this opens the share sheet so the file can go
@@ -162,26 +136,15 @@ export type BackupResult = 'shared' | 'downloaded' | 'cancelled'
  * Records the backup time unless the user cancelled the share sheet.
  */
 export async function saveBackup(): Promise<BackupResult> {
-  const file = new File([exportAppData()], backupFileName(), { type: 'application/json' })
-
-  if (shouldUseShareSheet(file)) {
-    try {
-      await navigator.share({
-        files: [file],
-        title: 'TuloyLang backup',
-        text: 'My TuloyLang habit and workout backup.',
-      })
-      recordBackup()
-      return 'shared'
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return 'cancelled'
-      // Share failed for another reason (e.g. no share target): fall back to a download.
-    }
-  }
-
-  downloadFile(file)
-  recordBackup()
-  return 'downloaded'
+  const file = new File([exportAppData()], `tuloylang-backup-${localDateStamp()}.json`, {
+    type: 'application/json',
+  })
+  const result = await saveFiles([file], {
+    title: 'TuloyLang backup',
+    text: 'My TuloyLang habit and workout backup.',
+  })
+  if (result !== 'cancelled') recordBackup()
+  return result
 }
 
 export type StorageProtection = 'protected' | 'not-protected' | 'unsupported'

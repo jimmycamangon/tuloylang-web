@@ -274,3 +274,32 @@ body,
     @apply fixed inset-0 bg-slate-900/40;
   }
 }
+
+/* =========================================
+   PRINT / SAVE AS PDF
+   The Analytics report renders .print-report next to #root; printing shows only that.
+   ========================================= */
+.print-report {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  #root {
+    display: none !important;
+  }
+
+  .print-report {
+    display: block;
+    color: #000;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
