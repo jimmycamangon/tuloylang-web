@@ -9,6 +9,7 @@ import {
   saveWorkoutTemplate,
   updateWorkout,
 } from '../lib/appDataStorage'
+import { toDateTimeLocalValue } from '../lib/workoutTime'
 import type { ExerciseEntry, TemplateDay, WorkoutEntry, WorkoutIntensity, WorkoutTemplate } from '../types/workout'
 
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
@@ -33,9 +34,7 @@ const intensityStyles: Record<WorkoutIntensity, string> = {
 }
 
 function getDefaultPerformedAt() {
-  const now = new Date()
-  const offsetMs = now.getTimezoneOffset() * 60_000
-  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 16)
+  return toDateTimeLocalValue(new Date())
 }
 
 const initialFormState: WorkoutFormState = {
@@ -145,7 +144,7 @@ export default function WorkoutsPage() {
       category: workout.category,
       durationMinutes: String(workout.durationMinutes),
       intensity: workout.intensity,
-      performedAt: workout.performedAt.slice(0, 16),
+      performedAt: toDateTimeLocalValue(new Date(workout.performedAt)),
       notes: workout.notes,
       exercises: workout.exercises ?? [],
     })
@@ -246,8 +245,7 @@ export default function WorkoutsPage() {
 
   function handleQuickLog(template: WorkoutTemplate) {
     const now = new Date()
-    const offsetMs = now.getTimezoneOffset() * 60_000
-    const performedAt = new Date(now.getTime() - offsetMs).toISOString()
+    const performedAt = now.toISOString()
 
     const workoutToSave: WorkoutEntry = {
       id: crypto.randomUUID(),

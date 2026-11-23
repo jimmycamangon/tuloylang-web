@@ -151,7 +151,7 @@ export default function AnalyticsPage() {
         )
         const completedHabits = scheduledHabits.filter((habit) => hasCompletionOnDate(habit, dayKey))
         const openHabits = scheduledHabits.filter((habit) => !hasCompletionOnDate(habit, dayKey))
-        const dayWorkouts = workouts.filter((workout) => workout.performedAt.slice(0, 10) === dayKey)
+        const dayWorkouts = workouts.filter((workout) => getLocalDateKey(new Date(workout.performedAt)) === dayKey)
         const completionRate =
           scheduledHabits.length > 0
             ? Math.round((completedHabits.length / scheduledHabits.length) * 100)

@@ -130,8 +130,7 @@ export default function DashboardPage() {
     if (!todayTemplate || hasLoggedTodayTemplate) return
 
     const now = new Date()
-    const offsetMs = now.getTimezoneOffset() * 60_000
-    const performedAt = new Date(now.getTime() - offsetMs).toISOString()
+    const performedAt = now.toISOString()
 
     const workoutToSave: WorkoutEntry = {
       id: crypto.randomUUID(),
